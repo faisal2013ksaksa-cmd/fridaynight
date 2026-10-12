@@ -54,22 +54,27 @@
   addEventListener("storage", e => { if (e.key === CKEY) fireCats(); });
 
   /* ---------- rooms / presence ---------- */
+  const JOINED = new Map();
   const ROOM = fdb ? {
     async join(name) {
+      if (JOINED.has(name)) return JOINED.get(name);
       const me = "p" + rid(16), base = fdb.ref("presence/" + name), ref = base.child(me), info = fdb.ref(".info/connected");
       let state = null, left = false;
       const write = () => state && !left ? ref.set(enc(state)) : Promise.resolve();
       const onConn = s => { if (s.val() === true && !left) { ref.onDisconnect().remove(); write(); } };
       info.on("value", onConn);
-      const subs = [];
-      return {
+      const subs = [], cbs = new Set();
+      const handle = {
         presence(p) { state = Object.assign(state || {}, p || {}); return write(); },
         onPeers(cb, e) {
+          if (cbs.has(cb)) return; cbs.add(cb);
           const h = s => { const v = s.val() || {}; const peers = Object.keys(v).map(k => ({ peer: k, presence: dec(v[k]) || {}, sameTab: k === me })).filter(p => p.presence); cb({ peers }); };
           base.on("value", h, x => e && e(x)); subs.push(h);
         },
-        leave() { left = true; info.off("value", onConn); subs.forEach(h => base.off("value", h)); ref.onDisconnect().cancel(); return ref.remove(); }
+        leave() { left = true; JOINED.delete(name); info.off("value", onConn); subs.forEach(h => base.off("value", h)); ref.onDisconnect().cancel(); return ref.remove(); }
       };
+      JOINED.set(name, handle);
+      return handle;
     }
   } : null;
 
