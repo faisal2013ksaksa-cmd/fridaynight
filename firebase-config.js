@@ -1,3 +1,1 @@
-/* الصق هنا إعدادات Firebase (firebaseConfig) من console.firebase.google.com
-   Paste your Firebase web config here. Leave null to play on one device only. */
-self.FIREBASE_CONFIG = null;
+self.FIREBASE_CONFIG = { databaseURL: "https://fridaynight-3b0e9-default-rtdb.europe-west1.firebasedatabase.app", projectId: "fridaynight-3b0e9" };
