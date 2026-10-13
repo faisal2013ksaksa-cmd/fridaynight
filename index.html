@@ -5,6 +5,7 @@
 .ytf .ytmask{position:absolute;left:0;right:0;top:0;height:24%;background:linear-gradient(#000 55%,transparent)}
 .ytf .ytcover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:#000e;color:#fff;font:800 20px var(--f-body,sans-serif);cursor:pointer;border:0;width:100%}
 .ytf .ytcover[hidden]{display:none}
+.ytf .ytblock{position:absolute;left:0;right:0;bottom:0;height:20%}
 .ytf .ytcover small{font-weight:500;font-size:14px;opacity:.75}
 </style></head><body>
 <title>سين جيم</title>
@@ -486,14 +487,14 @@ let DB=null,AS=null,MY=[],dbState="loading";
    re-rendering the card never restarts it. Title bar is masked, and when
    the clip reaches its end a cover hides YouTube's suggestions. */
 let YTF=null,YTQ=[];
-function ytAPI(cb){if(window.YT&&YT.Player){cb();return}YTQ.push(cb);if(YTQ.length>1)return;
+function ytAPI(cb){if(window.YT&&YT.Player){setTimeout(cb,0);return}YTQ.push(cb);if(YTQ.length>1)return;
   const prev=window.onYouTubeIframeAPIReady;window.onYouTubeIframeAPIReady=()=>{prev&&prev();const q=YTQ;YTQ=[];q.forEach(f=>f())};
   const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t)}
 function ytKill(){if(!YTF)return;try{YTF.p&&YTF.p.destroy()}catch(e){}YTF.el.remove();YTF=null}
 function ytMake(key){
   const [v,s,e]=key.split("|"),st=+s||0,en=+e||0;
   const el=document.createElement("div");el.className="ytf";
-  el.innerHTML='<div></div><div class="ytmask"></div><button type="button" class="ytcover" hidden>▶ شغّل المقطع مرة ثانية<small>انتهى المقطع</small></button>';
+  el.innerHTML='<div></div><div class="ytmask"></div><div class="ytblock"></div><button type="button" class="ytcover" hidden>▶ شغّل المقطع مرة ثانية<small>انتهى المقطع</small></button>';
   document.body.appendChild(el);
   const o={key,el,p:null};
   const cover=el.querySelector(".ytcover");
