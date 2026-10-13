@@ -290,7 +290,7 @@ body.tv .qcard{max-width:1200px}
 body.tv .media img.up{max-height:60vh}
 .hosttv .score .adj,.hosttv #undoBtn,.hosttv #newGame,.hosttv #end .actions,.hosttv #lStart,.hosttv #cardIn .reveal,.hosttv #cardIn .back,.hosttv #tToggle,.hosttv #tReset,.hosttv #cardIn .award,.hosttv #cardIn .who-h,.hosttv #cardIn .dbl button:not(.on){display:none!important}
 .hosttv #cardIn .dbl button,.hosttv #board .cell{pointer-events:none}
-.hostview{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));inset-inline-start:12px;z-index:15;box-shadow:var(--shadow);font-size:13px}
+.hostview{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));inset-inline-start:12px;z-index:15;box-shadow:var(--shadow);font-size:16px;padding:10px 16px}
 .crown{display:inline-flex;align-items:center;gap:6px;background:#fff4d6;color:#7a4f00;border-radius:999px;padding:5px 14px;font-weight:800;font-size:15px}
 .lead{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:2.5px solid var(--gold);border-radius:20px;padding:14px;text-align:center}
 .lead h3{margin:0;font-family:var(--f-display);font-size:19px}
@@ -531,7 +531,8 @@ function render(){
   if(VIEW==="need")renderNeeds();
   applyHostView();
 }
-const hostTV=()=>!!(S.room&&S.room.view!=="ctl");
+/* TV view only while someone can drive the game from a phone; with no players this device keeps full control */
+const hostTV=()=>!!(S.room&&S.room.view!=="ctl"&&HPEERS.some(p=>p.presence&&p.presence.role==="player"));
 function applyHostView(){
   const on=hostTV()&&VIEW==="play"&&S.phase!=="setup";
   document.body.classList.toggle("hosttv",on);
@@ -863,7 +864,7 @@ function runCmd(c){
     if(c.i===-1||(Number.isInteger(c.i)&&S.teams[c.i]))award(c.i);return}
 }
 function onHostPeers(ch){
-  HPEERS=ch.peers;let changed=false;
+  const tvBefore=hostTV();HPEERS=ch.peers;if(hostTV()!==tvBefore)setTimeout(render,0);let changed=false;
   for(const p of HPEERS){if(CMDSEEN[p.peer]===undefined)CMDSEEN[p.peer]=(p.presence&&p.presence.cmd&&p.presence.cmd.n)||0}
   const leadCh=pickLeader();
   if(Q&&!Q.revealed){
