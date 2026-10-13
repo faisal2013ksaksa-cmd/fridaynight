@@ -282,6 +282,10 @@ button.lteam.mine{border-color:var(--c);background:#fff}
 .st span{font-size:13px;font-weight:800;color:var(--muted)}
 .st b{font-size:16px;font-weight:800;color:var(--ink)}
 body.tv{font-size:20px}
+.gamesbar{display:flex;gap:6px;justify-content:center;padding-top:10px}
+.gamesbar a{text-decoration:none;font-weight:800;font-size:13px;color:var(--muted);background:var(--surface);padding:5px 12px;border-radius:999px;box-shadow:var(--shadow)}
+.gamesbar a.on{background:var(--accent);color:#fff}
+body.tv .gamesbar{display:none}
 body.tv header .tabs{display:none}
 body.tv .q-text{font-size:clamp(30px,4.4vw,52px)}
 body.tv .cell{font-size:clamp(20px,2.4vw,30px);padding-block:14px}
@@ -310,6 +314,7 @@ body.tv .media img.up{max-height:60vh}
 </style>
 
 <div class="wrap" dir="rtl" lang="ar">
+  <nav class="gamesbar" aria-label="الألعاب"><a class="on" href="./">🎬 سين جيم</a><a href="outside/">🤫 برا السالفة</a></nav>
   <header>
     <div class="brand"><span class="logo">س ج</span><span>سين جيم <small>مسلسلات</small></span></div>
     <nav class="tabs" aria-label="الصفحات">

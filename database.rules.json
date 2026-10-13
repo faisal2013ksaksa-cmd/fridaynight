@@ -1,5 +1,52 @@
-{"rules":{
- "rooms":{"$code":{".read":true,".write":true,".validate":"$code.matches(/^[A-Z]{2}[0-9]{3}$/) && (!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 200000)"}},
- "presence":{"$room":{".read":true,"$peer":{".write":true,".validate":"!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 4000"}}},
- "media":{"$id":{".read":true,".write":"!data.exists() || !newData.exists()",".validate":"!newData.exists() || $id.matches(/^[0-9a-f]{32}$/) && newData.child('d').isString() && newData.child('d').val().length < 2200000"}}
-}}
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        ".validate": "$code.matches(/^[A-Z]{2}[0-9]{3}$/) && (!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 200000)"
+      }
+    },
+    "presence": {
+      "$room": {
+        ".read": true,
+        "$peer": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 4000"
+        }
+      }
+    },
+    "media": {
+      "$id": {
+        ".read": true,
+        ".write": "!data.exists() || !newData.exists()",
+        ".validate": "!newData.exists() || $id.matches(/^[0-9a-f]{32}$/) && newData.child('d').isString() && newData.child('d').val().length < 2200000"
+      }
+    },
+    "bs": {
+      "$code": {
+        ".read": true,
+        "state": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 100000"
+        },
+        "hidden": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 5000"
+        },
+        "players": {
+          "$pid": {
+            ".write": true,
+            ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 3000"
+          }
+        },
+        "secret": {
+          "$pid": {
+            ".write": true,
+            ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 3000"
+          }
+        }
+      }
+    }
+  }
+}
