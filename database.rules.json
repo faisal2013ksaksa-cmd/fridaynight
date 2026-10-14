@@ -47,6 +47,25 @@
           }
         }
       }
+    },
+    "sq": {
+      "$code": {
+        ".read": true,
+        "state": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 100000"
+        },
+        "hidden": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 60000"
+        },
+        "players": {
+          "$pid": {
+            ".write": true,
+            ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 3000"
+          }
+        }
+      }
     }
   }
 }
