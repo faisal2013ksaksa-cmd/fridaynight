@@ -43,7 +43,7 @@
     // spy mode: the spy gets a different place from the same list and is not told
     const spyWord = isSpy(cat) ? shuffle(cat.words.filter(w => w !== word))[0] : null;
     const options = shuffle([word].concat(shuffle(cat.words.filter(w => w !== word && w !== spyWord)).slice(0, 5)));
-    return { cat: { id: cat.id, name: cat.name, emoji: cat.emoji, mode: cat.mode || null }, word, spyWord, outs, order, pairs, options };
+    return { cat: { id: cat.id, name: cat.name, emoji: cat.emoji, mode: cat.mode || null, image: cat.image || null }, word, spyWord, outs, order, pairs, options };
   }
   function tally(order, votes) {
     const counts = {}; order.forEach(id => counts[id] = 0);
@@ -67,9 +67,9 @@
 
   /* ---------------- shared bits of UI ---------------- */
   function roleCard(revealed, isOut, cat, word) {
-    if (revealed && isSpy(cat)) return `<div class="role"><small>القسم: ${esc(cat.emoji)} ${esc(cat.name)}</small><small>المكان</small><span class="big">${esc(word)}</span></div>`;
+    if (revealed && isSpy(cat)) return `<div class="role spy"><small>القسم: ${esc(cat.emoji)} ${esc(cat.name)}</small><small>المكان</small><span class="big">${esc(word)}</span></div>`;
     const catTxt = cat ? `القسم: ${esc(cat.emoji)} ${esc(cat.name)}` : "";
-    if (!revealed) return `<button type="button" class="role" data-act="reveal"><span class="tap">👆</span><span class="big">اضغط وشوف دورك</span><small>${catTxt}</small></button>`;
+    if (!revealed) return `<button type="button" class="role${isSpy(cat) ? " spy" : ""}" data-act="reveal"><span class="tap">👆</span><span class="big">اضغط وشوف دورك</span><small>${catTxt}</small></button>`;
     return `<div class="role"><small>${catTxt}</small>${isOut ? `<span class="big">أنت برا السالفة 🤫</span><small>حاول تتخفى وتعرف الكلمة</small>` : `<small>الكلمة</small><span class="big">${esc(word)}</span>`}</div>`;
   }
   function scoreTable(ids, nameOf, scores, deltas) {
@@ -89,8 +89,9 @@
     if (res.rightVoters.length) lines.push(`<li>صوّتوا صح (<b>+1</b>): ${res.rightVoters.map(v => esc(nameOf(v))).join("، ")}</li>`);
     return `<p class="big-msg">${isSpy(R.cat) ? "المكان كان" : "الكلمة كانت"} <span class="word">${esc(R.word)}</span></p>${isSpy(R.cat) && R.spyWord ? `<p class="note center">والجاسوس كان طالع له: ${esc(R.spyWord)}</p>` : ""}<ul class="note">${lines.join("")}</ul>`;
   }
+  const catBanner = id => { const c = catById(id); return c && c.image ? `<div class="catban"><img src="${esc(c.image)}" alt=""><span>${esc(c.emoji)} ${esc(c.name)}</span></div>` : ""; };
   function setupFields(cat, outs, n) {
-    return `<div class="field"><span class="lbl">القسم</span><div class="seg" data-grp="cat">${["random"].concat(CATS.map(c => c.id)).map(id => `<button type="button" data-cat="${id}" class="${cat === id ? "on" : ""}">${esc(catLabel(id))}</button>`).join("")}</div></div>
+    return `${catBanner(cat)}<div class="field"><span class="lbl">القسم</span><div class="seg" data-grp="cat">${["random"].concat(CATS.map(c => c.id)).map(id => `<button type="button" data-cat="${id}" class="${cat === id ? "on" : ""}">${esc(catLabel(id))}</button>`).join("")}</div></div>
       <div class="field"><span class="lbl">كم واحد برا السالفة (أو جاسوس)؟</span><div class="stepper"><button type="button" data-outs="-1" aria-label="أقل">−</button><b>${outs}</b><button type="button" data-outs="1" aria-label="أكثر">+</button></div>${n ? `<p class="note">مع ${n} لاعبين: لين ${maxOuts(n)} برا السالفة.</p>` : ""}</div>`;
   }
 
@@ -309,7 +310,7 @@
         <div class="card center"><span class="lbl">رمز الغرفة</span><div class="code">${esc(ME.code)}</div>${qr ? `<img class="qr" src="${qr}" alt="باركود الدخول">` : ""}
         <p class="note">خلّ البقية يصوّرون الباركود أو يدخلون الرمز من «ادخل غرفة».</p><button type="button" class="ghost mt" data-act="copy">انسخ رابط الدخول</button></div>
         <div class="card"><h2>اللاعبين (${ids.length})</h2><ul class="plist">${ids.map(id => `<li class="${id === ME.pid ? "me" : ""}">${esc(P[id].name)}${id === S.host ? " 👑" : ""}${isHost() && id !== ME.pid && S.phase === "lobby" ? ` <button type="button" data-kick="${id}" aria-label="شيل">✕</button>` : ""}</li>`).join("")}</ul></div>
-        ${isHost() && !waiting ? `<div class="card">${setupFields(S.cat, S.outs, ids.length)}<p class="err" id="herr"></p><button type="button" class="btn" data-act="hstart" ${ids.length < 3 ? "disabled" : ""}>ابدأ الجولة</button>${ids.length < 3 ? `<p class="note center">ننتظر ${3 - ids.length} لاعب${3 - ids.length > 1 ? "ين" : ""} بعد.</p>` : ""}</div>` : !waiting ? `<div class="card center"><p class="note">ننتظر 👑 ${esc(nameOf(S.host))} يبدأ الجولة… القسم: ${esc(catLabel(S.cat))}</p></div>` : ""}
+        ${isHost() && !waiting ? `<div class="card">${setupFields(S.cat, S.outs, ids.length)}<p class="err" id="herr"></p><button type="button" class="btn" data-act="hstart" ${ids.length < 3 ? "disabled" : ""}>ابدأ الجولة</button>${ids.length < 3 ? `<p class="note center">ننتظر ${3 - ids.length} لاعب${3 - ids.length > 1 ? "ين" : ""} بعد.</p>` : ""}</div>` : !waiting ? `<div class="card center">${catBanner(S.cat)}<p class="note">ننتظر 👑 ${esc(nameOf(S.host))} يبدأ الجولة… القسم: ${esc(catLabel(S.cat))}</p></div>` : ""}
         ${leave}`;
       return;
     }
