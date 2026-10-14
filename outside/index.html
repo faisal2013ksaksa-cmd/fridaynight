@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>برا السالفة</title>
+<title>برا السالفة · Friday Night</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Tajawal:wght@400;500;700;800&display=swap">
@@ -29,6 +29,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .gamesbar{display:flex;gap:6px;justify-content:center;padding-top:10px}
 .gamesbar a{text-decoration:none;font-weight:800;font-size:13px;color:var(--muted);background:var(--surface);padding:5px 12px;border-radius:999px;box-shadow:var(--shadow)}
 .gamesbar a.on{background:var(--accent);color:#fff}
+.gamesbar{align-items:center;flex-wrap:wrap}
+.gamesbar .site{font-family:var(--f-display);font-weight:800;font-size:14px;color:var(--ink);direction:ltr;margin-inline-end:4px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;font-size:clamp(24px,6vw,32px);line-height:1}
 .brand .logo{width:44px;height:44px;border-radius:14px;background:var(--pink);color:#fff;display:grid;place-items:center;font-size:22px;box-shadow:var(--shadow)}
@@ -110,7 +112,7 @@ td.plus{color:var(--good)}
 </head>
 <body>
 <div class="wrap">
-  <nav class="gamesbar" aria-label="الألعاب"><a href="../">🎬 سين جيم</a><a href="./" class="on">🤫 برا السالفة</a></nav>
+  <nav class="gamesbar" aria-label="الألعاب"><span class="site">🌙 Friday Night</span><a href="../">🎬 سين جيم</a><a href="./" class="on">🤫 برا السالفة</a></nav>
   <header>
     <div class="brand"><span class="logo">🤫</span><span>برا السالفة</span></div>
     <span class="chip" id="hdrChip" hidden></span>
