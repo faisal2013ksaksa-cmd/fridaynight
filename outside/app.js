@@ -10,7 +10,9 @@
   const app = document.getElementById("app");
   const chip = document.getElementById("hdrChip");
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const rint = n => Math.floor(Math.random() * n);
+  // crypto-grade randomness (Math.random fallback)
+  const rnd = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296; } catch (e) { return Math.random(); } };
+  const rint = n => Math.floor(rnd() * n);
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rint(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const rid = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, "0")).join("");
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
@@ -34,10 +36,31 @@
     return { cat, word };
   }
   const maxOuts = n => Math.max(1, Math.floor((n - 1) / 2));
-  function makeRound(ids, catChoice, outCount, used) {
+  // fair outsider pick: hist = {c:{id:times out}, last:[ids out last round]}
+  // last round's outsiders sit out (when possible); players who were out less get more weight.
+  function pickOuts(ids, k, hist) {
+    const c = (hist && hist.c) || {}, last = (hist && hist.last) || [];
+    let pool = ids.filter(id => !last.includes(id));
+    if (pool.length < k) pool = ids.slice();
+    const outs = [];
+    while (outs.length < k && pool.length) {
+      const min = Math.min(...pool.map(id => c[id] || 0));
+      const w = pool.map(id => Math.pow(4, min - (c[id] || 0)));
+      let r = rnd() * w.reduce((a, b) => a + b, 0), i = 0;
+      while (i < pool.length - 1 && (r -= w[i]) >= 0) i++;
+      outs.push(pool[i]); pool.splice(i, 1);
+    }
+    return outs;
+  }
+  function addOutHist(hist, outs) {
+    const h = { c: Object.assign({}, (hist && hist.c) || {}), last: outs.slice() };
+    outs.forEach(id => h.c[id] = (h.c[id] || 0) + 1);
+    return h;
+  }
+  function makeRound(ids, catChoice, outCount, used, hist) {
     const { cat, word } = pickWord(catChoice, used);
     const order = shuffle(ids);
-    const outs = shuffle(ids).slice(0, Math.min(outCount, maxOuts(ids.length)));
+    const outs = pickOuts(ids, Math.min(outCount, maxOuts(ids.length)), hist);
     // a random cycle: everyone asks once and is asked once
     const pairs = order.map((id, i) => [id, order[(i + 1) % order.length]]);
     // spy mode: the spy gets a different place from the same list and is not told
@@ -103,7 +126,7 @@
   let PS = null; // pass state
   function passInit() {
     const saved = LS.get(PKEY, {});
-    PS = { step: "setup", names: saved.names || ["", "", ""], cat: saved.cat || "random", outs: saved.outs || 1, scores: {}, used: {}, R: null, idx: 0, shown: false, votes: {}, guesses: {}, pick: null, res: null };
+    PS = { step: "setup", names: saved.names || ["", "", ""], cat: saved.cat || "random", outs: saved.outs || 1, scores: {}, used: {}, oh: null, R: null, idx: 0, shown: false, votes: {}, guesses: {}, pick: null, res: null };
   }
   const passSave = () => LS.set(PKEY, { names: PS.names, cat: PS.cat, outs: PS.outs });
   const pName = id => PS.names[+id] || "";
@@ -173,7 +196,14 @@
     if (ids.length < 3) { document.getElementById("perr").textContent = "تحتاجون 3 لاعبين على الأقل."; return; }
     if (new Set(names).size !== names.length) { document.getElementById("perr").textContent = "فيه اسمين متشابهين، غيّروا واحد منهم."; return; }
     passSave();
-    PS.R = makeRound(ids, PS.cat, PS.outs, PS.used);
+    // scores + outsider history are kept by name, so editing/removing players never shifts them
+    const byName = {}; Object.entries(PS.scores).forEach(([id, v]) => { const n = (PS.idNames || {})[id]; if (n) byName[n] = v; });
+    PS.scores = {}; ids.forEach(id => { if (byName[pName(id)] != null) PS.scores[id] = byName[pName(id)]; });
+    PS.idNames = {}; ids.forEach(id => PS.idNames[id] = pName(id));
+    const oh = PS.oh || { c: {}, last: [] }, hist = { c: {}, last: ids.filter(id => oh.last.includes(pName(id))) };
+    ids.forEach(id => hist.c[id] = oh.c[pName(id)] || 0);
+    PS.R = makeRound(ids, PS.cat, PS.outs, PS.used, hist);
+    PS.oh = addOutHist({ c: oh.c }, PS.R.outs.map(pName));
     PS.step = "roles"; PS.idx = 0; PS.shown = false; PS.votes = {}; PS.guesses = {}; PS.pick = null;
     renderPass();
   }
@@ -258,11 +288,11 @@
     const ids = Object.keys(P).sort((a, b) => (P[a].at || 0) - (P[b].at || 0));
     if (ids.length < 3) return "تحتاجون 3 لاعبين على الأقل.";
     const used = JSON.parse(JSON.stringify(S.used || {}));
-    const R = makeRound(ids, S.cat, S.outs, used);
+    const R = makeRound(ids, S.cat, S.outs, used, S.oh);
     const names = {}; ids.forEach(id => names[id] = P[id].name);
     await ref("hidden").set(enc({ round: S.round + 1, word: R.word, spyWord: R.spyWord, outs: R.outs, options: R.options }));
     await Promise.all(ids.map(id => ref("secret/" + id).set(enc({ round: S.round + 1, cat: R.cat, out: R.outs.includes(id), word: R.outs.includes(id) ? R.spyWord : R.word }))));
-    await writeState({ phase: "roles", round: S.round + 1, order: R.order, pairs: R.pairs, catInfo: R.cat, nOuts: R.outs.length, used, names, reveal: null, results: null });
+    await writeState({ phase: "roles", round: S.round + 1, order: R.order, pairs: R.pairs, catInfo: R.cat, nOuts: R.outs.length, used, oh: addOutHist(S.oh, R.outs), names, reveal: null, results: null });
     return "";
   }
   function votesOf(order, round) { const v = {}; order.forEach(id => { const e = P[id]; if (e && e.vote && e.vote.r === round) v[id] = e.vote.t; }); return v; }
@@ -470,5 +500,5 @@
   }).catch(() => { app.innerHTML = `<div class="card"><p class="big-msg">ما قدرت أحمّل الكلمات. حدّث الصفحة.</p></div>`; });
 
   // test hook
-  self.BS = { makeRound, tally, scoreRound, pickWord, get CATS() { return CATS; } };
+  self.BS = { makeRound, pickOuts, addOutHist, tally, scoreRound, pickWord, get CATS() { return CATS; } };
 })();
