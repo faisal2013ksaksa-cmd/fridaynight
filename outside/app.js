@@ -434,6 +434,20 @@
     }
   }
 
+  /* ---- always-visible "new game" button: leaves the room / round and goes home ---- */
+  const newBtn = document.getElementById("newBtn");
+  let newArm = null;
+  setInterval(() => { newBtn.hidden = view === "home"; }, 300);
+  newBtn.onclick = () => {
+    if (!newBtn.classList.contains("warn")) {
+      newBtn.classList.add("warn"); newBtn.textContent = "اضغط مرة ثانية للتأكيد";
+      newArm = setTimeout(() => { newBtn.classList.remove("warn"); newBtn.textContent = "🏠 لعبة جديدة"; }, 3000);
+      return;
+    }
+    clearTimeout(newArm); newBtn.classList.remove("warn"); newBtn.textContent = "🏠 لعبة جديدة";
+    if (view === "room") leaveRoom(); else { history.replaceState(null, "", location.pathname); goHome(); }
+    window.scrollTo(0, 0);
+  };
   /* ---------------- events ---------------- */
   app.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b || b.disabled) return;
