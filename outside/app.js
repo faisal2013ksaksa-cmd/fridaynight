@@ -18,12 +18,15 @@
   /* ---------------- words ---------------- */
   let CATS = [];
   const catById = id => CATS.find(c => c.id === id);
+  const isSpy = c => !!(c && c.mode === "spy");
+  const W = c => isSpy(c) ? "المكان" : "الكلمة";          // what everyone knows
+  const OUTN = c => isSpy(c) ? "الجاسوس" : "اللي برا السالفة";
   const catLabel = id => id === "random" ? "🎲 عشوائي" : (catById(id) ? catById(id).emoji + " " + catById(id).name : "");
 
   /* ---------------- game engine (shared by both modes) ---------------- */
   // used: {catId: [words already played this session]}
   function pickWord(catChoice, used) {
-    const cat = catChoice === "random" ? CATS[rint(CATS.length)] : catById(catChoice) || CATS[0];
+    const pool = CATS.filter(c => !isSpy(c)); const cat = catChoice === "random" ? pool[rint(pool.length)] : catById(catChoice) || CATS[0];
     let left = cat.words.filter(w => !(used[cat.id] || []).includes(w));
     if (!left.length) { used[cat.id] = []; left = cat.words.slice(); }
     const word = left[rint(left.length)];
@@ -37,8 +40,10 @@
     const outs = shuffle(ids).slice(0, Math.min(outCount, maxOuts(ids.length)));
     // a random cycle: everyone asks once and is asked once
     const pairs = order.map((id, i) => [id, order[(i + 1) % order.length]]);
-    const options = shuffle([word].concat(shuffle(cat.words.filter(w => w !== word)).slice(0, 5)));
-    return { cat: { id: cat.id, name: cat.name, emoji: cat.emoji }, word, outs, order, pairs, options };
+    // spy mode: the spy gets a different place from the same list and is not told
+    const spyWord = isSpy(cat) ? shuffle(cat.words.filter(w => w !== word))[0] : null;
+    const options = shuffle([word].concat(shuffle(cat.words.filter(w => w !== word && w !== spyWord)).slice(0, 5)));
+    return { cat: { id: cat.id, name: cat.name, emoji: cat.emoji, mode: cat.mode || null }, word, spyWord, outs, order, pairs, options };
   }
   function tally(order, votes) {
     const counts = {}; order.forEach(id => counts[id] = 0);
@@ -62,6 +67,7 @@
 
   /* ---------------- shared bits of UI ---------------- */
   function roleCard(revealed, isOut, cat, word) {
+    if (revealed && isSpy(cat)) return `<div class="role"><small>القسم: ${esc(cat.emoji)} ${esc(cat.name)}</small><small>المكان</small><span class="big">${esc(word)}</span></div>`;
     const catTxt = cat ? `القسم: ${esc(cat.emoji)} ${esc(cat.name)}` : "";
     if (!revealed) return `<button type="button" class="role" data-act="reveal"><span class="tap">👆</span><span class="big">اضغط وشوف دورك</span><small>${catTxt}</small></button>`;
     return `<div class="role"><small>${catTxt}</small>${isOut ? `<span class="big">أنت برا السالفة 🤫</span><small>حاول تتخفى وتعرف الكلمة</small>` : `<small>الكلمة</small><span class="big">${esc(word)}</span>`}</div>`;
@@ -78,14 +84,14 @@
     const lines = R.outs.map(o => {
       const n = esc(nameOf(o));
       if (!res.caught[o]) return `<li>${n} ما انكشف 😎 <b>+2</b></li>`;
-      return `<li>${n} انكشف، و${res.guessOk[o] ? "خمّن الكلمة صح 👏 <b>+1</b>" : "ما عرف الكلمة ❌"}</li>`;
+      return `<li>${n} انكشف، و${res.guessOk[o] ? `خمّن ${W(R.cat)} صح 👏 <b>+1</b>` : `ما عرف ${W(R.cat)} ❌`}</li>`;
     });
     if (res.rightVoters.length) lines.push(`<li>صوّتوا صح (<b>+1</b>): ${res.rightVoters.map(v => esc(nameOf(v))).join("، ")}</li>`);
-    return `<p class="big-msg">الكلمة كانت <span class="word">${esc(R.word)}</span></p><ul class="note">${lines.join("")}</ul>`;
+    return `<p class="big-msg">${isSpy(R.cat) ? "المكان كان" : "الكلمة كانت"} <span class="word">${esc(R.word)}</span></p>${isSpy(R.cat) && R.spyWord ? `<p class="note center">والجاسوس كان طالع له: ${esc(R.spyWord)}</p>` : ""}<ul class="note">${lines.join("")}</ul>`;
   }
   function setupFields(cat, outs, n) {
     return `<div class="field"><span class="lbl">القسم</span><div class="seg" data-grp="cat">${["random"].concat(CATS.map(c => c.id)).map(id => `<button type="button" data-cat="${id}" class="${cat === id ? "on" : ""}">${esc(catLabel(id))}</button>`).join("")}</div></div>
-      <div class="field"><span class="lbl">كم واحد برا السالفة؟</span><div class="stepper"><button type="button" data-outs="-1" aria-label="أقل">−</button><b>${outs}</b><button type="button" data-outs="1" aria-label="أكثر">+</button></div>${n ? `<p class="note">مع ${n} لاعبين: لين ${maxOuts(n)} برا السالفة.</p>` : ""}</div>`;
+      <div class="field"><span class="lbl">كم واحد برا السالفة (أو جاسوس)؟</span><div class="stepper"><button type="button" data-outs="-1" aria-label="أقل">−</button><b>${outs}</b><button type="button" data-outs="1" aria-label="أكثر">+</button></div>${n ? `<p class="note">مع ${n} لاعبين: لين ${maxOuts(n)} برا السالفة.</p>` : ""}</div>`;
   }
 
   /* =================================================================
@@ -118,12 +124,12 @@
     if (PS.step === "roles") {
       const id = R.order[PS.idx];
       app.innerHTML = PS.shown
-        ? `<div class="card"><h2>دور ${esc(pName(id))}</h2>${roleCard(true, R.outs.includes(id), R.cat, R.word)}<button type="button" class="btn mt" data-act="phide">تم، أخفِ</button></div>`
+        ? `<div class="card"><h2>دور ${esc(pName(id))}</h2>${roleCard(true, R.outs.includes(id), R.cat, R.outs.includes(id) && R.spyWord ? R.spyWord : R.word)}<button type="button" class="btn mt" data-act="phide">تم، أخفِ</button></div>`
         : `<div class="card center"><p class="note">${PS.idx + 1} من ${R.order.length}</p><p class="big-msg">أعطِ الجوال لـ ${esc(pName(id))}</p>${roleCard(false, false, R.cat)}<button type="button" class="btn mt" data-act="reveal">اكشف دوري</button></div>`;
       return;
     }
     if (PS.step === "ask") {
-      app.innerHTML = `<div class="card"><h2>جولة الأسئلة 🗣️</h2><p class="note">القسم: ${esc(R.cat.emoji)} ${esc(R.cat.name)} · كل واحد يسأل اللي جنبه سؤال عن الكلمة بدون ما يفضحها.</p>
+      app.innerHTML = `<div class="card"><h2>جولة الأسئلة 🗣️</h2><p class="note">القسم: ${esc(R.cat.emoji)} ${esc(R.cat.name)} · كل واحد يسأل اللي جنبه سؤال عن ${W(R.cat)} بدون ما يفضحها.</p>
         <ul class="pairs mt">${R.pairs.map(([a, b]) => `<li>${esc(pName(a))} <i>يسأل</i> ${esc(pName(b))}</li>`).join("")}</ul>
         <button type="button" class="btn mt" data-act="pvote">خلصنا، نصوّت</button></div>`;
       return;
@@ -131,7 +137,7 @@
     if (PS.step === "vote") {
       const id = R.order[PS.idx];
       app.innerHTML = PS.shown
-        ? `<div class="card"><h2>${esc(pName(id))}، مين برا السالفة؟</h2><p class="note">صوّتك سري.</p><div class="vote mt">${R.order.map(t => `<button type="button" data-vote="${t}" ${t === id ? "disabled" : ""} class="${PS.pick === t ? "on" : ""}">${esc(pName(t))}</button>`).join("")}</div>
+        ? `<div class="card"><h2>${esc(pName(id))}، مين ${isSpy(R.cat) ? "الجاسوس" : "برا السالفة"}؟</h2><p class="note">صوّتك سري.</p><div class="vote mt">${R.order.map(t => `<button type="button" data-vote="${t}" ${t === id ? "disabled" : ""} class="${PS.pick === t ? "on" : ""}">${esc(pName(t))}</button>`).join("")}</div>
           <button type="button" class="btn mt" data-act="pvoted" ${PS.pick ? "" : "disabled"}>تأكيد وأخفِ</button></div>`
         : `<div class="card center"><p class="note">التصويت ${PS.idx + 1} من ${R.order.length}</p><p class="big-msg">أعطِ الجوال لـ ${esc(pName(id))}</p><button type="button" class="btn" data-act="reveal">أنا ${esc(pName(id))}، أبي أصوّت</button></div>`;
       return;
@@ -139,16 +145,16 @@
     if (PS.step === "reveal") {
       const t = tally(R.order, PS.votes);
       app.innerHTML = `<div class="card"><h2>النتيجة 🗳️</h2>${barsHTML(R.order, pName, t.counts, [])}
-        <p class="big-msg mt">${R.outs.length > 1 ? "اللي برا السالفة" : "اللي برا السالفة"}: ${R.outs.map(o => esc(pName(o))).join(" و")} 🤫</p>
+        <p class="big-msg mt">${OUTN(R.cat)}: ${R.outs.map(o => esc(pName(o))).join(" و")} ${isSpy(R.cat) ? "🕵️" : "🤫"}</p>
         <button type="button" class="btn pink" data-act="pguess">فرصة التخمين</button></div>`;
       return;
     }
     if (PS.step === "guess") {
       const id = R.outs[PS.idx];
       app.innerHTML = PS.shown
-        ? `<div class="card"><h2>${esc(pName(id))}، وش الكلمة؟</h2><div class="opts mt">${R.options.map(w => `<button type="button" data-guess="${esc(w)}" class="${PS.pick === w ? "on" : ""}">${esc(w)}</button>`).join("")}</div>
+        ? `<div class="card"><h2>${esc(pName(id))}، وش ${W(R.cat)} الصحيح${isSpy(R.cat) ? "" : "ة"}؟</h2><div class="opts mt">${R.options.map(w => `<button type="button" data-guess="${esc(w)}" class="${PS.pick === w ? "on" : ""}">${esc(w)}</button>`).join("")}</div>
           <button type="button" class="btn mt" data-act="pguessed" ${PS.pick ? "" : "disabled"}>تأكيد</button></div>`
-        : `<div class="card center"><p class="big-msg">أعطِ الجوال لـ ${esc(pName(id))}</p><button type="button" class="btn" data-act="reveal">خمّن الكلمة</button></div>`;
+        : `<div class="card center"><p class="big-msg">أعطِ الجوال لـ ${esc(pName(id))}</p><button type="button" class="btn" data-act="reveal">خمّن ${W(R.cat)}</button></div>`;
       return;
     }
     if (PS.step === "results") {
@@ -251,8 +257,8 @@
     const used = JSON.parse(JSON.stringify(S.used || {}));
     const R = makeRound(ids, S.cat, S.outs, used);
     const names = {}; ids.forEach(id => names[id] = P[id].name);
-    await ref("hidden").set(enc({ round: S.round + 1, word: R.word, outs: R.outs, options: R.options }));
-    await Promise.all(ids.map(id => ref("secret/" + id).set(enc({ round: S.round + 1, cat: R.cat, out: R.outs.includes(id), word: R.outs.includes(id) ? null : R.word }))));
+    await ref("hidden").set(enc({ round: S.round + 1, word: R.word, spyWord: R.spyWord, outs: R.outs, options: R.options }));
+    await Promise.all(ids.map(id => ref("secret/" + id).set(enc({ round: S.round + 1, cat: R.cat, out: R.outs.includes(id), word: R.outs.includes(id) ? R.spyWord : R.word }))));
     await writeState({ phase: "roles", round: S.round + 1, order: R.order, pairs: R.pairs, catInfo: R.cat, nOuts: R.outs.length, used, names, reveal: null, results: null });
     return "";
   }
@@ -274,7 +280,7 @@
   }
   async function hostReveal() {
     const t = tally(S.order, votesOf(S.order, S.round));
-    await Promise.all(HID.outs.map(id => ref("secret/" + id).set(enc({ round: S.round, cat: S.catInfo, out: true, word: null, options: HID.options }))));
+    await Promise.all(HID.outs.map(id => ref("secret/" + id).set(enc({ round: S.round, cat: S.catInfo, out: true, word: HID.spyWord || null, options: HID.options }))));
     await writeState({ phase: "reveal", reveal: { counts: t.counts, outs: HID.outs } });
   }
   async function hostFinish() {
@@ -282,7 +288,7 @@
     const res = scoreRound(R, votesOf(S.order, S.round), guessesOf(HID.outs, S.round));
     const scores = Object.assign({}, S.scores);
     Object.entries(res.deltas).forEach(([id, d]) => scores[id] = (scores[id] || 0) + d);
-    await writeState({ phase: "results", scores, results: { word: HID.word, deltas: res.deltas, caught: res.caught, guessOk: res.guessOk, rightVoters: res.rightVoters, counts: res.tally.counts, outs: HID.outs } });
+    await writeState({ phase: "results", scores, results: { word: HID.word, spyWord: HID.spyWord || null, deltas: res.deltas, caught: res.caught, guessOk: res.guessOk, rightVoters: res.rightVoters, counts: res.tally.counts, outs: HID.outs } });
   }
 
   /* ---- room view ---- */
@@ -318,7 +324,7 @@
           <div class="card"><h3>شافوا أدوارهم (${seen.length}/${order.length})</h3><ul class="plist">${order.map(id => `<li class="${id === ME.pid ? "me" : ""} ${seen.includes(id) ? "done" : ""}">${esc(nameOf(id))}</li>`).join("")}</ul>
           ${isHost() ? `<button type="button" class="btn mt" data-act="hask">يلا جولة الأسئلة</button>` : `<p class="note">لما الكل يشوف دوره، 👑 ${esc(nameOf(S.host))} يبدأ الأسئلة.</p>`}</div>`;
       } else {
-        app.innerHTML = `<div class="card"><h2>جولة الأسئلة 🗣️</h2><p class="note">القسم: ${esc(S.catInfo.emoji)} ${esc(S.catInfo.name)} · كل واحد يسأل اللي بعده سؤال عن الكلمة بدون ما يفضحها.</p>
+        app.innerHTML = `<div class="card"><h2>جولة الأسئلة 🗣️</h2><p class="note">القسم: ${esc(S.catInfo.emoji)} ${esc(S.catInfo.name)} · كل واحد يسأل اللي بعده سؤال عن ${W(S.catInfo)} بدون ما يفضحها.</p>
           <ul class="pairs mt">${(S.pairs || []).map(([a, b]) => `<li class="${a === ME.pid || b === ME.pid ? "me" : ""}">${esc(nameOf(a))} <i>يسأل</i> ${esc(nameOf(b))}</li>`).join("")}</ul>
           ${isHost() ? `<button type="button" class="btn mt" data-act="hvote">خلصنا، نصوّت</button>` : ""}</div>
           <div class="card"><h3>دورك</h3>${card}${revealed ? `<button type="button" class="btn alt mt" data-act="hide">أخفِ</button>` : ""}</div>`;
@@ -327,7 +333,7 @@
     }
     if (S.phase === "vote") {
       const v = votesOf(order, S.round), mine = v[ME.pid];
-      app.innerHTML = `<div class="card"><h2>مين برا السالفة؟ 🗳️</h2><p class="note">صوّتك سري. صوّتوا ${Object.keys(v).length} من ${order.length}.</p>
+      app.innerHTML = `<div class="card"><h2>مين ${isSpy(S.catInfo) ? "الجاسوس 🕵️" : "برا السالفة 🗳️"}؟</h2><p class="note">صوّتك سري. صوّتوا ${Object.keys(v).length} من ${order.length}.</p>
         ${mine ? `<p class="big-msg mt">صوّتت ✓</p><p class="note center">ننتظر الباقين…</p>` : `<div class="vote mt">${order.map(t => `<button type="button" data-vote="${t}" ${t === ME.pid ? "disabled" : ""} class="${myPick === t ? "on" : ""}">${esc(nameOf(t))}</button>`).join("")}</div>
         <button type="button" class="btn mt" data-act="dovote" ${myPick ? "" : "disabled"}>تأكيد التصويت</button>`}
         <ul class="plist mt">${order.map(id => `<li class="${id === ME.pid ? "me" : ""} ${v[id] ? "done" : ""}">${esc(nameOf(id))}</li>`).join("")}</ul>
@@ -340,15 +346,15 @@
       const g = guessesOf(rv.outs, S.round);
       const opts = mySec && mySec.options;
       app.innerHTML = `<div class="card"><h2>النتيجة 🗳️</h2>${barsHTML(order, nameOf, rv.counts, [])}
-        <p class="big-msg mt">اللي برا السالفة: ${rv.outs.map(o => esc(nameOf(o))).join(" و")} 🤫</p></div>
-        <div class="card">${amOut ? (g[ME.pid] ? `<p class="big-msg">اخترت: ${esc(g[ME.pid])}</p><p class="note center">ننتظر النتيجة…</p>` : `<h2>فرصتك! وش الكلمة؟</h2>${opts ? `<div class="opts">${opts.map(w => `<button type="button" data-guess="${esc(w)}" class="${myPick === w ? "on" : ""}">${esc(w)}</button>`).join("")}</div><button type="button" class="btn mt" data-act="doguess" ${myPick ? "" : "disabled"}>تأكيد</button>` : `<p class="note">لحظة…</p>`}`)
-          : `<p class="big-msg">${rv.outs.map(o => esc(nameOf(o))).join(" و")} يخمّن الكلمة الحين… 🤔</p>`}
+        <p class="big-msg mt">${OUTN(S.catInfo)}: ${rv.outs.map(o => esc(nameOf(o))).join(" و")} ${isSpy(S.catInfo) ? "🕵️" : "🤫"}</p></div>
+        <div class="card">${amOut ? (g[ME.pid] ? `<p class="big-msg">اخترت: ${esc(g[ME.pid])}</p><p class="note center">ننتظر النتيجة…</p>` : `<h2>فرصتك! وش ${W(S.catInfo)} الصحيح${isSpy(S.catInfo) ? "" : "ة"}؟</h2>${opts ? `<div class="opts">${opts.map(w => `<button type="button" data-guess="${esc(w)}" class="${myPick === w ? "on" : ""}">${esc(w)}</button>`).join("")}</div><button type="button" class="btn mt" data-act="doguess" ${myPick ? "" : "disabled"}>تأكيد</button>` : `<p class="note">لحظة…</p>`}`)
+          : `<p class="big-msg">${rv.outs.map(o => esc(nameOf(o))).join(" و")} يخمّن ${W(S.catInfo)} الحين… 🤔</p>`}
         ${isHost() ? `<button type="button" class="btn alt mt" data-act="hfinish">اعرض النقاط الحين</button>` : ""}</div>`;
       return;
     }
     if (S.phase === "results") {
       const r = S.results;
-      const R = { outs: r.outs, word: r.word };
+      const R = { outs: r.outs, word: r.word, spyWord: r.spyWord, cat: S.catInfo };
       app.innerHTML = `<div class="card"><h2>نتيجة الجولة ${S.round} 🏆</h2>${resultSummary(R, r, nameOf)}${barsHTML(order, nameOf, r.counts, r.outs)}</div>
         <div class="card"><h2>النقاط</h2>${scoreTable(Object.keys(S.scores || {}).concat(order.filter(id => !(S.scores || {})[id])).filter((x, i, a) => a.indexOf(x) === i), nameOf, S.scores || {}, r.deltas)}
         ${isHost() ? `<p class="err" id="herr"></p><button type="button" class="btn mt" data-act="hnext">جولة جديدة</button><button type="button" class="btn alt mt" data-act="hlobby">غيّر القسم أو انتظر لاعبين</button>` : `<p class="note center mt">ننتظر 👑 ${esc(nameOf(S.host))} يبدأ جولة جديدة…</p>`}</div>${leave}`;
@@ -390,7 +396,7 @@
         <button type="button" class="mode" data-act="ojoin"><span class="ic">🔑</span><span><b>ادخل غرفة</b><span>عندك رمز من صاحبك</span></span></button>
         <button type="button" class="mode" data-act="pass"><span class="ic">📱</span><span><b>جوال واحد</b><span>مرّروا الجوال بينكم</span></span></button>
       </div>
-      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>كل اللاعبين تطلع لهم كلمة سرية، إلا اللي برا السالفة.</li><li>تسألون بعض أسئلة عن الكلمة بدون ما تفضحونها.</li><li>بعدين تصوّتون مين برا السالفة، وهو يحاول يخمّن الكلمة.</li><li>ما انكشف: <b>+2</b> · انكشف وعرف الكلمة: <b>+1</b> · صوّتّ صح: <b>+1</b></li></ul></div>`;
+      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>كل اللاعبين تطلع لهم كلمة سرية، إلا اللي برا السالفة.</li><li>تسألون بعض أسئلة عن الكلمة بدون ما تفضحونها.</li><li>بعدين تصوّتون مين برا السالفة، وهو يحاول يخمّن الكلمة.</li><li>🕵️ قسم الجاسوس: الكل يطلع لهم مكان، والجاسوس يطلع له مكان ثاني وما يدري إنه الجاسوس.</li><li>ما انكشف: <b>+2</b> · انكشف وعرف الكلمة: <b>+1</b> · صوّتّ صح: <b>+1</b></li></ul></div>`;
   }
   function renderForm(kind, code, msg) {
     const nm = (ME && ME.name) || "";
