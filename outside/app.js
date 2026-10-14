@@ -89,7 +89,8 @@
     if (res.rightVoters.length) lines.push(`<li>صوّتوا صح (<b>+1</b>): ${res.rightVoters.map(v => esc(nameOf(v))).join("، ")}</li>`);
     return `<p class="big-msg">${isSpy(R.cat) ? "المكان كان" : "الكلمة كانت"} <span class="word">${esc(R.word)}</span></p>${isSpy(R.cat) && R.spyWord ? `<p class="note center">والجاسوس كان طالع له: ${esc(R.spyWord)}</p>` : ""}<ul class="note">${lines.join("")}</ul>`;
   }
-  const catBanner = id => { const c = catById(id); return c && c.image ? `<div class="catban"><img src="${esc(c.image)}" alt=""><span>${esc(c.emoji)} ${esc(c.name)}</span></div>` : ""; };
+  const catBanner = () => "";
+  const pageBg = img => { document.body.classList.toggle("catbg", !!img); document.body.style.setProperty("--catbg", img ? `url("${img}")` : "none"); };
   function setupFields(cat, outs, n) {
     return `${catBanner(cat)}<div class="field"><span class="lbl">القسم</span><div class="seg" data-grp="cat">${["random"].concat(CATS.map(c => c.id)).map(id => `<button type="button" data-cat="${id}" class="${cat === id ? "on" : ""}">${esc(catLabel(id))}</button>`).join("")}</div></div>
       <div class="field"><span class="lbl">كم واحد برا السالفة (أو جاسوس)؟</span><div class="stepper"><button type="button" data-outs="-1" aria-label="أقل">−</button><b>${outs}</b><button type="button" data-outs="1" aria-label="أكثر">+</button></div>${n ? `<p class="note">مع ${n} لاعبين: لين ${maxOuts(n)} برا السالفة.</p>` : ""}</div>`;
@@ -111,6 +112,7 @@
   function renderPass() {
     chip.hidden = true;
     const R = PS.R;
+    { const c = PS.step === "setup" ? catById(PS.cat) : R && R.cat; pageBg(c && c.image); }
     if (PS.step === "setup") {
       const n = passIds().length;
       app.innerHTML = `<div class="card"><h2>📱 جوال واحد</h2><p class="note">اكتبوا أسماءكم، وبعدين كل واحد يشوف دوره لحاله ويعطي الجوال اللي بعده.</p>
@@ -295,6 +297,7 @@
   /* ---- room view ---- */
   function renderRoom() {
     if (view !== "room") return;
+    { const c = !S ? null : (S.phase === "lobby" || !S.catInfo) ? catById(S.cat) : S.catInfo; pageBg(c && c.image); }
     if (!S) { app.innerHTML = `<div class="card center"><p class="big-msg">جاري الاتصال…</p></div>`; return; }
     chip.hidden = false; chip.innerHTML = `الغرفة <b dir="ltr">${esc(ME.code)}</b> · ${esc(ME.name)}${isHost() ? " 👑" : ""}`;
     const inRound = S.order && S.order.includes(ME.pid) && S.phase !== "lobby";
@@ -389,7 +392,7 @@
   /* =================================================================
      HOME / JOIN screens
      ================================================================= */
-  function goHome() { view = "home"; chip.hidden = true; renderHome(); }
+  function goHome() { view = "home"; chip.hidden = true; pageBg(null); renderHome(); }
   function renderHome() {
     app.innerHTML = `<div class="hero"><h1>برا السالفة 🤫</h1><p>الكل يعرف الكلمة إلا واحد… اكشفوه قبل ما يعرفها!</p></div>
       <div class="modes">

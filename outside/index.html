@@ -77,9 +77,11 @@ h3{margin:0 0 6px;font-family:var(--f-display);font-size:18px;font-weight:800}
 /* role card: inside and outside look identical until the text is read */
 .role{width:100%;height:240px;border-radius:24px;background:linear-gradient(135deg,#2b1745,#4c1d95);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:18px;box-shadow:var(--shadow);user-select:none;-webkit-user-select:none}
 .role.spy{background:linear-gradient(rgba(30,14,52,.80),rgba(60,22,120,.86)),url(spy-map.jpg) center/cover}
-.catban{position:relative;border-radius:18px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);aspect-ratio:16/9;background:#f3f1ea}
-.catban img{width:100%;height:100%;object-fit:cover;display:block}
-.catban span{position:absolute;inset-inline:0;bottom:0;padding:22px 14px 10px;background:linear-gradient(transparent,rgba(30,14,52,.85));color:#fff;font-family:var(--f-display);font-weight:800;font-size:20px}
+/* full-page category background (e.g. the Riyadh map for الجاسوس) */
+body.catbg::before{content:"";position:fixed;inset:0;z-index:-1;background:var(--catbg) center/cover no-repeat,#f3f1ea}
+body.catbg::after{content:"";position:fixed;inset:0;z-index:-1;background:rgba(253,243,255,.18)}
+body.catbg .gamesbar a:not(.on),body.catbg .chip{background:#fff}
+body.catbg .brand{background:rgba(255,255,255,.9);padding:6px 12px 6px 6px;border-radius:18px}
 .role small{font-weight:700;font-size:15px;opacity:.8}
 .role .big{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,8vw,40px);line-height:1.25}
 .role .tap{font-size:44px}
