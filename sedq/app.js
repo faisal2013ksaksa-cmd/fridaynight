@@ -31,11 +31,31 @@
     while (out.length < n && guard++ < 2000) { const p = pools[k % pools.length]; if (p.length) out.push(p.shift()); k++; if (pools.every(x => !x.length)) break; }
     return shuffle(out);
   }
+  // Every option (truth + lies) is shown in the same style, so the real answer can't be spotted
+  // by how it's written (e.g. "1938م" vs "1990", "13 منطقة" vs "15", tashkeel, ١٢٣ vs 123).
+  // Only the on-screen text changes; questions.json stays as is.
+  const NUM = "\\d+(?:[.,]\\d+)?";
+  const style = s => String(s || "")
+    .replace(/[\u0660-\u0669]/g, d => d.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, d => d.charCodeAt(0) - 0x6F0)
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, "")                      // tashkeel + tatweel
+    .replace(new RegExp("(" + NUM + ")\\s*(?:م|هـ|ه)(?=$|\\s)", "g"), "$1") // year marker
+    .replace(/[.!؟?،,]+$/, "").replace(/\s+/g, " ").trim();
+  const numUnit = s => { const m = s.match(new RegExp("^(" + NUM + ")(?:\\s+(.+))?$")); return m ? { n: m[1], unit: m[2] || "" } : null; };
+  // a lie gets the same shape as the truth: bare number <-> number + the truth's unit
+  function shapeLie(lie, truthShown) {
+    const l = style(lie), t = numUnit(truthShown), x = numUnit(l);
+    if (t && x && !t.unit) return x.n;                       // truth "206", lie "300 عظمة" -> "300"
+    if (t && x && t.unit && !x.unit) return x.n + " " + t.unit; // truth "13 منطقة", lie "15" -> "15 منطقة"
+    return l;
+  }
+  const lieKey = (lie, truth) => norm(shapeLie(lie, style(truth)));
+  const isTruth = (lie, truth) => lieKey(lie, truth) === norm(style(truth));
   // lies: {pid: text}. returns options [{id,text}] and owners {optId: "truth" | [pids]}
   function buildOptions(truth, lies) {
+    const T = style(truth);
     const groups = new Map(); // norm -> {text, pids}
-    Object.entries(lies).forEach(([pid, text]) => { const k = norm(text); if (!k || k === norm(truth)) return; if (!groups.has(k)) groups.set(k, { text: text.trim(), pids: [] }); groups.get(k).pids.push(pid); });
-    const items = [{ text: truth, own: "truth" }].concat([...groups.values()].map(g => ({ text: g.text, own: g.pids })));
+    Object.entries(lies).forEach(([pid, text]) => { const shown = shapeLie(text, T), k = norm(shown); if (!k || k === norm(T)) return; if (!groups.has(k)) groups.set(k, { text: shown, pids: [] }); groups.get(k).pids.push(pid); });
+    const items = [{ text: T, own: "truth" }].concat([...groups.values()].map(g => ({ text: g.text, own: g.pids })));
     const opts = [], owners = {};
     shuffle(items).forEach((it, i) => { const id = "o" + i; opts.push({ id, text: it.text }); owners[id] = it.own; });
     return { opts, owners };
@@ -131,7 +151,7 @@
       if (S.phase === "write") {
         // a lie that equals the truth must be rewritten
         const q = HID.qs[S.idx], redo = (S.redo || []).slice(); let ch = false;
-        (S.order || []).forEach(id => { const e = P[id]; if (e && e.lie && e.lie.q === S.q.id && norm(e.lie.text) === norm(q.a) && !redo.includes(id + ":" + e.lie.n)) { redo.push(id + ":" + e.lie.n); ch = true; } });
+        (S.order || []).forEach(id => { const e = P[id]; if (e && e.lie && e.lie.q === S.q.id && isTruth(e.lie.text, q.a) && !redo.includes(id + ":" + e.lie.n)) { redo.push(id + ":" + e.lie.n); ch = true; } });
         if (ch) { await writeState({ redo }); return; }
         if (Object.keys(liesNow()).length >= S.order.length || el > WRITE_S + 1) await hostToPick();
       } else if (S.phase === "pick") {
@@ -334,5 +354,5 @@
     } else if (ME && ME.code && db) joinRoom(ME.code, ME.name).catch(() => { ME.code = null; LS.set(MKEY, ME); goHome(); });
     else goHome();
   }).catch(() => { app.innerHTML = `<div class="card"><p class="big-msg">ما قدرت أحمّل الأسئلة. حدّث الصفحة.</p></div>`; });
-  self.SQ = { pickQuestions, buildOptions, scoreRound, norm, get CATS() { return CATS; } };
+  self.SQ = { pickQuestions, buildOptions, scoreRound, norm, style, shapeLie, isTruth, get CATS() { return CATS; } };
 })();
