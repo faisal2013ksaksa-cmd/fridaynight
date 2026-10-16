@@ -15,7 +15,9 @@
     sq: { dir: "sedq/", label: "🤥 صدق ولا كذب" },
     bs: { dir: "outside/", label: "🤫 برا السالفة" },
     mf: { dir: "mf/", label: "👀 مين فينا؟" },
+    draw: { dir: "draw/", label: "🎨 ارسم وخمّن" },
   };
+  let STROKES = {}, board = null, frame = "";
 
   function qrImg(text) { try { const d = document.createElement("div"); new QRCode(d, { text, width: 260, height: 260, colorDark: "#2b1745", colorLight: "#ffffff" }); const c = d.querySelector("canvas"); return c ? `<img class="qr" src="${c.toDataURL()}" alt="">` : ""; } catch (e) { return ""; } }
   function sideHTML() {
@@ -44,6 +46,23 @@
       return `<div class="card">${head}${img}${q}<div class="tvopts">${opts.map(o => { const own = r.owners[o.id], pk = Object.keys(r.picks).filter(p => r.picks[p] === o.id); return `<div class="${own === "truth" ? "truth" : ""}">${esc(o.text)}<small>${own === "truth" ? "✅ الجواب الصحيح" : "🤥 كذبة " + esc(own.map(nameOf).join(" و"))}${pk.length ? " · اختارها: " + esc(pk.map(nameOf).join("، ")) : ""}</small></div>`; }).join("")}</div></div>
         <div class="card"><h2>الترتيب</h2>${scoreTable(r.deltas)}</div>`;
     }
+    if (S.phase === "end") { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); const m = ["🥇", "🥈", "🥉"]; return `<div class="card"><p class="tvtitle">النتيجة النهائية 🏆</p><div class="podium">${ids.map((id, i) => `<div><span>${m[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div></div>`; }
+    return "";
+  }
+  /* ---------- ارسم وخمّن ---------- */
+  // the canvas stays on screen during a turn; only the text around it is refreshed
+  function drawSide() {
+    const order = S.order || [], ok = S.correct || {};
+    const hint = S.hint ? `<div class="hint">${S.hint.map(c => c === " " ? `<i class="sp"></i>` : `<i>${esc(c)}</i>`).join("")}</div>` : "";
+    return `${hint}<ul class="chat">${(S.chat || []).slice().reverse().slice(0, 8).map(m => `<li><b>${esc(nameOf(m.p))}:</b> ${m.c ? "🔥 قريب!" : esc(m.t)}</li>`).join("")}</ul>
+      ${plist(order.filter(id => id !== S.drawer), id => ok[id])}`;
+  }
+  function renderDraw() {
+    const head = S.drawer ? `<p class="tvsub">الدور ${S.turn + 1} من ${S.total} · ✏️ الرسّام: <b>${esc(nameOf(S.drawer))}</b></p>` : "";
+    if (S.phase === "lobby") return `<div class="card"><p class="tvtitle">🎨 ارسم وخمّن</p><p class="tvsub">اللاعبين (${lobbyIds().length}) · ننتظر صاحب الغرفة يبدأ</p>${plist(lobbyIds())}</div>`;
+    if (S.phase === "choose") return `<div class="card">${head}<p class="tvtitle">✏️ ${esc(nameOf(S.drawer))} يختار كلمة…</p></div><div class="card"><h2>الترتيب</h2>${scoreTable()}</div>`;
+    if (S.phase === "draw") return `<div class="card">${head}${timer(80)}<div id="tvside">${drawSide()}</div><canvas id="tvcv" class="board"></canvas></div>`;
+    if (S.phase === "reveal") { const d = Object.assign({}, S.correct || {}); d[S.drawer] = (d[S.drawer] || 0) + (S.dpts || 0); return `<div class="card">${head}<p class="tvtitle">الكلمة كانت <span class="word">${esc(S.word || "")}</span></p><canvas id="tvcv" class="board"></canvas></div><div class="card"><h2>الترتيب</h2>${scoreTable(d)}</div>`; }
     if (S.phase === "end") { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); const m = ["🥇", "🥈", "🥉"]; return `<div class="card"><p class="tvtitle">النتيجة النهائية 🏆</p><div class="podium">${ids.map((id, i) => `<div><span>${m[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div></div>`; }
     return "";
   }
@@ -76,11 +95,15 @@
   function render() {
     if (!game) return;
     if (!S) { app.innerHTML = `<div class="card center"><p class="big-msg">الغرفة انقفلت أو ما بدأت.</p></div>`; return; }
-    const key = S.phase + ":" + (S.q ? S.q.id : S.round || ""); if (key !== lastStep) { lastStep = key; stepStart = Date.now(); }
+    const key = S.phase + ":" + (S.q ? S.q.id : S.tid || S.round || ""); if (key !== lastStep) { lastStep = key; stepStart = Date.now(); }
+    if (game === "draw" && S.phase === "draw" && frame === key && document.getElementById("tvcv")) { document.getElementById("tvside").innerHTML = drawSide(); return; }
     const bg = game === "bs" && S.catInfo && S.catInfo.image && S.phase !== "lobby" ? "../outside/" + S.catInfo.image : null;
     document.body.classList.toggle("catbg", !!bg); document.body.style.setProperty("--catbg", bg ? `url("${bg}")` : "none");
-    const main = game === "sq" ? renderSQ() : game === "mf" ? renderMF() : renderBS();
+    const main = game === "sq" ? renderSQ() : game === "mf" ? renderMF() : game === "draw" ? renderDraw() : renderBS();
     app.innerHTML = `<div class="tvgrid"><div>${main}</div>${sideHTML()}</div>`;
+    frame = key; board = null;
+    const cv = document.getElementById("tvcv");
+    if (cv && self.DrawBoard) { board = DrawBoard.Board(cv); board.set(DrawBoard.parse(STROKES, dec)); }
   }
   function watch(g, c) {
     game = g; code = c; S = null; P = {};
@@ -89,6 +112,8 @@
     const on = (ref, cb) => { const h = s => cb(s.val()); ref.on("value", h); subs.push(() => ref.off("value", h)); };
     on(r.child("state"), v => { S = dec(v); render(); });
     on(r.child("players"), v => { P = {}; Object.entries(v || {}).forEach(([k, x]) => { const d = dec(x); if (d) P[k] = d; }); render(); });
+    STROKES = {}; frame = "";
+    if (g === "draw") on(r.child("strokes"), v => { STROKES = v || {}; if (board) board.set(DrawBoard.parse(STROKES, dec)); });
     history.replaceState(null, "", "#" + c);
     try { document.documentElement.requestFullscreen && 0; } catch (e) {}
   }
