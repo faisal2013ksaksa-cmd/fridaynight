@@ -36,32 +36,14 @@
     return { cat, word };
   }
   const maxOuts = n => Math.max(1, Math.floor((n - 1) / 2));
-  // fair outsider pick: hist = {c:{id:times out}, last:[ids out last round], s:{id:rounds out in a row}}
-  // Fair but not predictable: nobody is out 3 rounds in a row, and players who were out
-  // more often (or last round) get a slightly lower chance — never zero, so the history
-  // doesn't tell players who it is.
-  const OUT_BAL = 0.8, OUT_LAST = 0.8, OUT_STREAK = 2;
-  function pickOuts(ids, k, hist) {
-    const c = (hist && hist.c) || {}, last = (hist && hist.last) || [], st = (hist && hist.s) || {};
-    const pool = ids.slice(), outs = [];
-    while (outs.length < k && pool.length) {
-      const min = Math.min(...pool.map(id => c[id] || 0));
-      let w = pool.map(id => {
-        if (last.includes(id) && (st[id] || 1) >= OUT_STREAK) return 0;
-        return Math.pow(OUT_BAL, (c[id] || 0) - min) * (last.includes(id) ? OUT_LAST : 1);
-      });
-      let tot = w.reduce((a, b) => a + b, 0);
-      if (!(tot > 0)) { w = pool.map(() => 1); tot = pool.length; }
-      let r = rnd() * tot, i = 0;
-      while (i < pool.length - 1 && (r -= w[i]) >= 0) i++;
-      outs.push(pool[i]); pool.splice(i, 1);
-    }
-    return outs;
+  // outsider pick: pure random, every player has the exact same chance every round
+  // (no history rules, so nobody can guess who it is)
+  function pickOuts(ids, k) {
+    return shuffle(ids).slice(0, k);
   }
   function addOutHist(hist, outs) {
-    const last = (hist && hist.last) || [], st = (hist && hist.s) || {};
-    const h = { c: Object.assign({}, (hist && hist.c) || {}), last: outs.slice(), s: {} };
-    outs.forEach(id => { h.c[id] = (h.c[id] || 0) + 1; h.s[id] = last.includes(id) ? (st[id] || 1) + 1 : 1; });
+    const h = { c: Object.assign({}, (hist && hist.c) || {}), last: outs.slice() };
+    outs.forEach(id => h.c[id] = (h.c[id] || 0) + 1);
     return h;
   }
   function makeRound(ids, catChoice, outCount, used, hist) {
@@ -100,10 +82,7 @@
     if (revealed && isSpy(cat)) return `<div class="role spy"><small>القسم: ${esc(cat.emoji)} ${esc(cat.name)}</small><small>المكان</small><span class="big">${esc(word)}</span></div>`;
     const catTxt = cat ? `القسم: ${esc(cat.emoji)} ${esc(cat.name)}` : "";
     if (!revealed) return `<button type="button" class="role${isSpy(cat) ? " spy" : ""}" data-act="reveal"><span class="tap">👆</span><span class="big">اضغط وشوف دورك</span><small>${catTxt}</small></button>`;
-    // both cards have the exact same layout, so nobody can tell from a glance at the screen
-    return `<div class="role"><small>${catTxt}</small>${isOut
-      ? `<small>دورك</small><span class="big">برا السالفة</span><small>تخفّى وحاول تعرف الكلمة</small>`
-      : `<small>الكلمة</small><span class="big">${esc(word)}</span><small>لا تقولها، اسأل عنها بذكاء</small>`}</div>`;
+    return `<div class="role"><small>${catTxt}</small>${isOut ? `<span class="big">أنت برا السالفة 🤫</span><small>حاول تتخفى وتعرف الكلمة</small>` : `<small>الكلمة</small><span class="big">${esc(word)}</span>`}</div>`;
   }
   function scoreTable(ids, nameOf, scores, deltas) {
     const rows = ids.slice().sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
@@ -210,10 +189,10 @@
     const byName = {}; Object.entries(PS.scores).forEach(([id, v]) => { const n = (PS.idNames || {})[id]; if (n) byName[n] = v; });
     PS.scores = {}; ids.forEach(id => { if (byName[pName(id)] != null) PS.scores[id] = byName[pName(id)]; });
     PS.idNames = {}; ids.forEach(id => PS.idNames[id] = pName(id));
-    const oh = PS.oh || { c: {}, last: [], s: {} }, ohs = oh.s || {}, hist = { c: {}, s: {}, last: ids.filter(id => oh.last.includes(pName(id))) };
-    ids.forEach(id => { hist.c[id] = oh.c[pName(id)] || 0; if (ohs[pName(id)]) hist.s[id] = ohs[pName(id)]; });
+    const oh = PS.oh || { c: {}, last: [] }, hist = { c: {}, last: ids.filter(id => oh.last.includes(pName(id))) };
+    ids.forEach(id => hist.c[id] = oh.c[pName(id)] || 0);
     PS.R = makeRound(ids, PS.cat, PS.outs, PS.used, hist);
-    PS.oh = addOutHist({ c: oh.c, last: oh.last, s: ohs }, PS.R.outs.map(pName));
+    PS.oh = addOutHist({ c: oh.c }, PS.R.outs.map(pName));
     PS.step = "roles"; PS.idx = 0; PS.shown = false; PS.votes = {}; PS.guesses = {}; PS.pick = null;
     renderPass();
   }
