@@ -231,6 +231,9 @@
   const MKEY = "bs-me-v1";
   let ME = LS.get(MKEY, null);            // {pid, name, code}
   let S = null, P = {}, SEC = null, HID = null, subs = [], revealed = false, myPick = null, lastRound = -1, view = "home";
+  // secrets are sealed (see fncrypto.js): secret/<pid> for that player, hidden + votes for the host only
+  let VDEC = {}, decSeq = 0, secSeq = 0, hidSeq = 0;
+  const myKey = () => FNC.pub();
   const isHost = () => S && ME && S.host === ME.pid;
   const ref = p => db.ref("bs/" + ME.code + (p ? "/" + p : ""));
   const nameOf = id => (P[id] && P[id].name) || (S && S.names && S.names[id]) || "؟";
@@ -244,9 +247,9 @@
     unsubscribe();
     const on = (r, cb) => { const h = s => cb(s.val()); r.on("value", h); subs.push(() => r.off("value", h)); };
     on(ref("state"), v => { S = dec(v); if (S && S.round !== lastRound) { lastRound = S.round; revealed = false; myPick = null; } renderRoom(); hostTick(); });
-    on(ref("players"), v => { P = {}; Object.entries(v || {}).forEach(([k, x]) => { const d = dec(x); if (d) P[k] = d; }); renderRoom(); hostTick(); });
-    on(ref("secret/" + ME.pid), v => { SEC = dec(v); renderRoom(); });
-    on(ref("hidden"), v => { HID = dec(v); hostTick(); });
+    on(ref("players"), v => { P = {}; Object.entries(v || {}).forEach(([k, x]) => { const d = dec(x); if (d) P[k] = d; }); renderRoom(); decVotes(); });
+    on(ref("secret/" + ME.pid), async v => { const n = ++secSeq, o = await FNC.open(dec(v)); if (n !== secSeq) return; SEC = o || null; renderRoom(); });
+    on(ref("hidden"), async v => { const n = ++hidSeq, o = await FNC.open(dec(v)); if (n !== hidSeq) return; HID = o || null; hostTick(); });
   }
   const genCode = () => { const L = "ABCDEFGHJKLMNPQRSTUVWXYZ"; return Array.from({ length: 4 }, () => L[rint(L.length)]).join(""); };
 
@@ -255,8 +258,9 @@
     for (let i = 0; i < 5; i++) { const s = await db.ref("bs/" + code + "/state").get(); if (!s.exists()) break; code = genCode(); }
     ME = { pid: "p" + rid(8), name, code }; LS.set(MKEY, ME);
     S = { v: 1, host: ME.pid, phase: "lobby", round: 0, cat: "random", outs: 1, scores: {}, used: {}, names: {}, at: Date.now() };
+    S.hk = await myKey();
     await ref("state").set(enc(S));
-    await writeMe({ name, at: Date.now() });
+    await writeMe({ name, at: Date.now(), key: await myKey() });
     view = "room"; history.replaceState(null, "", "#" + code); subscribe();
   }
   async function joinRoom(code, name) {
@@ -267,7 +271,7 @@
     P = {};
     const st = dec(s.val());
     const cur = (await db.ref("bs/" + code + "/players/" + ME.pid).get()).val();
-    await db.ref("bs/" + code + "/players/" + ME.pid).set(enc(Object.assign({}, dec(cur) || {}, { name, at: (dec(cur) || {}).at || Date.now() })));
+    await db.ref("bs/" + code + "/players/" + ME.pid).set(enc(Object.assign({}, dec(cur) || {}, { name, key: await myKey(), at: (dec(cur) || {}).at || Date.now() })));
     S = st; view = "room"; history.replaceState(null, "", "#" + code); subscribe();
   }
   function leaveRoom() { unsubscribe(); if (ME) { ME.code = null; LS.set(MKEY, ME); } S = null; P = {}; SEC = null; HID = null; history.replaceState(null, "", location.pathname); goHome(); }
@@ -277,23 +281,51 @@
     const ids = Object.keys(P).sort((a, b) => (P[a].at || 0) - (P[b].at || 0));
     if (ids.length < 3) return "تحتاجون 3 لاعبين على الأقل.";
     const used = JSON.parse(JSON.stringify(S.used || {}));
+    const noKey = ids.filter(id => !P[id].key);
+    if (noKey.length) return "لازم " + noKey.map(id => P[id].name).join(" و") + " يحدّث الصفحة.";
     const R = makeRound(ids, S.cat, S.outs, used, S.oh);
     const names = {}; ids.forEach(id => names[id] = P[id].name);
-    await ref("hidden").set(enc({ round: S.round + 1, word: R.word, spyWord: R.spyWord, outs: R.outs, options: R.options }));
-    await Promise.all(ids.map(id => ref("secret/" + id).set(enc({ round: S.round + 1, cat: R.cat, out: R.outs.includes(id), word: R.outs.includes(id) ? R.spyWord : R.word }))));
-    await writeState({ phase: "roles", round: S.round + 1, order: R.order, pairs: R.pairs, catInfo: R.cat, nOuts: R.outs.length, used, oh: addOutHist(S.oh, R.outs), names, reveal: null, results: null });
+    const sk = {}; ids.forEach(id => sk[id] = P[id].key);
+    const H = { round: S.round + 1, cat: R.cat, word: R.word, spyWord: R.spyWord, outs: R.outs, options: R.options, sk };
+    await saveHidden(H);
+    await Promise.all(ids.map(id => writeSecret(id, H, false)));
+    await writeState({ phase: "roles", round: S.round + 1, hk: await myKey(), order: R.order, pairs: R.pairs, catInfo: R.cat, nOuts: R.outs.length, used, oh: addOutHist(S.oh, R.outs), names, reveal: null, results: null });
     return "";
   }
-  function votesOf(order, round) { const v = {}; order.forEach(id => { const e = P[id]; if (e && e.vote && e.vote.r === round) v[id] = e.vote.t; }); return v; }
+  // host sees who each player voted for; everyone else only sees that they voted
+  function votesOf(order, round) { const v = {}; order.forEach(id => { const e = P[id]; if (e && e.vote && e.vote.r === round) v[id] = isHost() && VDEC[id] && VDEC[id].r === round ? VDEC[id].t : true; }); return v; }
+  async function decVotes() {
+    if (!isHost()) { hostTick(); return; }
+    const n = ++decSeq, out = {};
+    await Promise.all(Object.entries(P).map(async ([id, e]) => { if (e && e.vote && e.vote.s) { const t = await FNC.open(e.vote.s); if (typeof t === "string") out[id] = { r: e.vote.r, t }; } }));
+    if (n !== decSeq) return;
+    VDEC = out; renderRoom(); hostTick();
+  }
+  const hostVotes = (order, round) => { const v = votesOf(order, round); Object.keys(v).forEach(k => { if (typeof v[k] !== "string") delete v[k]; }); return v; };
+  const votesReady = (order, round) => order.every(id => !(P[id] && P[id].vote && P[id].vote.r === round) || (VDEC[id] && VDEC[id].r === round));
+  // what player id may know this round
+  const secretFor = (id, H, withOptions) => ({ round: H.round, cat: H.cat, out: H.outs.includes(id), word: H.outs.includes(id) ? (withOptions ? H.spyWord || null : H.spyWord) : H.word, options: withOptions && H.outs.includes(id) ? H.options : undefined });
+  async function writeSecret(id, H, withOptions) { await ref("secret/" + id).set(enc(await FNC.seal(P[id].key, secretFor(id, H, withOptions)))); }
+  async function saveHidden(H) { HID = H; await ref("hidden").set(enc(await FNC.seal(await myKey(), H))); }
   function guessesOf(outs, round) { const g = {}; outs.forEach(id => { const e = P[id]; if (e && e.guess && e.guess.r === round) g[id] = e.guess.w; }); return g; }
   let ticking = false;
   async function hostTick() {
     if (!isHost() || ticking || !HID || HID.round !== S.round) return;
     ticking = true;
     try {
+      // a player who reloaded with a new key gets their secret sealed again
+      if (S.phase !== "lobby" && S.phase !== "results" && HID.sk) {
+        const re = (S.order || []).filter(id => P[id] && P[id].key && HID.sk[id] !== P[id].key);
+        if (re.length) {
+          const H = Object.assign({}, HID, { sk: Object.assign({}, HID.sk) }); re.forEach(id => H.sk[id] = P[id].key);
+          await Promise.all(re.map(id => writeSecret(id, H, S.phase === "reveal")));
+          await saveHidden(H);
+        }
+      }
+      if (S.hk !== await myKey()) await writeState({ hk: await myKey() });
       if (S.phase === "vote") {
         const v = votesOf(S.order, S.round);
-        if (Object.keys(v).length >= S.order.length) await hostReveal();
+        if (Object.keys(v).length >= S.order.length && votesReady(S.order, S.round)) await hostReveal();
       } else if (S.phase === "reveal") {
         const g = guessesOf(HID.outs, S.round);
         if (Object.keys(g).length >= HID.outs.length) await hostFinish();
@@ -301,13 +333,13 @@
     } finally { ticking = false; }
   }
   async function hostReveal() {
-    const t = tally(S.order, votesOf(S.order, S.round));
-    await Promise.all(HID.outs.map(id => ref("secret/" + id).set(enc({ round: S.round, cat: S.catInfo, out: true, word: HID.spyWord || null, options: HID.options }))));
+    const t = tally(S.order, hostVotes(S.order, S.round));
+    await Promise.all(HID.outs.filter(id => P[id] && P[id].key).map(id => writeSecret(id, HID, true)));
     await writeState({ phase: "reveal", reveal: { counts: t.counts, outs: HID.outs } });
   }
   async function hostFinish() {
     const R = { order: S.order, outs: HID.outs, word: HID.word };
-    const res = scoreRound(R, votesOf(S.order, S.round), guessesOf(HID.outs, S.round));
+    const res = scoreRound(R, hostVotes(S.order, S.round), guessesOf(HID.outs, S.round));
     const scores = Object.assign({}, S.scores);
     Object.entries(res.deltas).forEach(([id, d]) => scores[id] = (scores[id] || 0) + d);
     await writeState({ phase: "results", scores, results: { word: HID.word, spyWord: HID.spyWord || null, deltas: res.deltas, caught: res.caught, guessOk: res.guessOk, rightVoters: res.rightVoters, counts: res.tally.counts, outs: HID.outs } });
@@ -394,7 +426,7 @@
       if (b.dataset.guess) { myPick = b.dataset.guess; renderRoom(); return; }
       if (a === "reveal") { revealed = true; renderRoom(); return; }
       if (a === "hide") { revealed = false; if (myEntry().seen !== S.round) await writeMe({ seen: S.round }); renderRoom(); return; }
-      if (a === "dovote" && myPick) { await writeMe({ vote: { r: S.round, t: myPick } }); myPick = null; return; }
+      if (a === "dovote" && myPick) { if (!S.hk) return; await writeMe({ vote: { r: S.round, s: await FNC.seal(S.hk, myPick) } }); myPick = null; return; }
       if (a === "doguess" && myPick) { await writeMe({ guess: { r: S.round, w: myPick } }); myPick = null; return; }
       if (a === "copy") { try { await navigator.clipboard.writeText(joinURL(ME.code)); b.textContent = "انتسخ ✓"; } catch (e) { b.textContent = joinURL(ME.code); } return; }
       if (a === "leave") { leaveRoom(); return; }

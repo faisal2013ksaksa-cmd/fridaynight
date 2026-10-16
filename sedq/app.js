@@ -80,6 +80,31 @@
   const MKEY = "sq-me-v1";
   let ME = LS.get(MKEY, null);
   let S = null, P = {}, HID = null, subs = [], view = "home", lastStep = null, stepStart = 0, tick = null, draft = "";
+  // secrets are sealed (see fncrypto.js): lies + picks go to the host only (plus a copy for the writer),
+  // "which option is my lie" goes to each player, hidden (answers) to the host.
+  let DEC = {}, MYOPT = null, decSeq = 0, hidSeq = 0, optSeq = 0;
+  const myKey = () => FNC.pub();
+  const BOX = new Map(); // decrypt cache
+  const openC = async box => { if (!box || !box.c) return undefined; if (BOX.has(box.c)) return BOX.get(box.c); const v = await FNC.open(box); if (v !== undefined) BOX.set(box.c, v); return v; };
+  async function decAll() {
+    const n = ++decSeq, out = {}, host = isHost();
+    await Promise.all(Object.entries(P).map(async ([id, e]) => {
+      const o = {}, mine = ME && id === ME.pid;
+      if (e.lie) { const t = await openC(host ? e.lie.s : mine ? e.lie.m : null) ?? (host && mine ? await openC(e.lie.m) : undefined); if (typeof t === "string") o.lie = { q: e.lie.q, n: e.lie.n, text: t }; }
+      if (e.pick) { const t = await openC(host ? e.pick.s : mine ? e.pick.m : null) ?? (host && mine ? await openC(e.pick.m) : undefined); if (typeof t === "string") o.pick = { q: e.pick.q, opt: t }; }
+      out[id] = o;
+    }));
+    if (n !== decSeq) return;
+    DEC = out; render(); hostTick();
+  }
+  async function decMine() {
+    const n = ++optSeq, q = S && S.q && S.q.id, box = S && S.mine && ME && S.mine[ME.pid];
+    const v = box ? await openC(box) : undefined;
+    if (n !== optSeq) return;
+    const next = typeof v === "string" ? { q, opt: v } : null;
+    if (JSON.stringify(next) !== JSON.stringify(MYOPT)) { MYOPT = next; render(); }
+  }
+  async function saveHidden(H) { HID = H; await ref("hidden").set(enc(await FNC.seal(await myKey(), H))); }
   const isHost = () => S && ME && S.host === ME.pid;
   const ref = p => db.ref("sq/" + ME.code + (p ? "/" + p : ""));
   const nameOf = id => (P[id] && P[id].name) || (S && S.names && S.names[id]) || "؟";
@@ -95,18 +120,18 @@
   function subscribe() {
     unsubscribe();
     const on = (r, cb) => { const h = s => cb(s.val()); r.on("value", h); subs.push(() => r.off("value", h)); };
-    on(ref("state"), v => { S = dec(v); const k = stepKey(); if (k !== lastStep) { lastStep = k; stepStart = Date.now(); draft = ""; } render(); hostTick(); });
-    on(ref("players"), v => { P = {}; Object.entries(v || {}).forEach(([k, x]) => { const d = dec(x); if (d) P[k] = d; }); render(); hostTick(); });
-    on(ref("hidden"), v => { HID = dec(v); hostTick(); });
+    on(ref("state"), v => { S = dec(v); const k = stepKey(); if (k !== lastStep) { lastStep = k; stepStart = Date.now(); draft = ""; } render(); decMine(); hostTick(); });
+    on(ref("players"), v => { P = {}; Object.entries(v || {}).forEach(([k, x]) => { const d = dec(x); if (d) P[k] = d; }); render(); decAll(); });
+    on(ref("hidden"), async v => { const n = ++hidSeq, o = await FNC.open(dec(v)); if (n !== hidSeq) return; HID = o || null; hostTick(); });
   }
   const genCode = () => { const L = "ABCDEFGHJKLMNPQRSTUVWXYZ"; return Array.from({ length: 4 }, () => L[rint(L.length)]).join(""); };
   async function createRoom(name) {
     let code = genCode();
     for (let i = 0; i < 5; i++) { const s = await db.ref("sq/" + code + "/state").get(); if (!s.exists()) break; code = genCode(); }
     ME = { pid: "p" + rid(8), name, code }; LS.set(MKEY, ME);
-    S = { v: 2, host: ME.pid, phase: "lobby", rounds: 8, scores: {}, used: [], names: {}, at: Date.now() };
+    S = { v: 2, host: ME.pid, hk: await myKey(), phase: "lobby", rounds: 8, scores: {}, used: [], names: {}, at: Date.now() };
     await ref("state").set(enc(S));
-    await writeMe({ name, at: Date.now(), cats: [] });
+    await writeMe({ name, at: Date.now(), cats: [], key: await myKey() });
     view = "room"; history.replaceState(null, "", "#" + code); subscribe();
   }
   async function joinRoom(code, name) {
@@ -116,18 +141,21 @@
     ME = { pid: same || "p" + rid(8), name, code }; LS.set(MKEY, ME);
     P = {};
     const cur = dec((await db.ref("sq/" + code + "/players/" + ME.pid).get()).val()) || {};
-    await db.ref("sq/" + code + "/players/" + ME.pid).set(enc(Object.assign({ cats: [] }, cur, { name, at: cur.at || Date.now() })));
+    await db.ref("sq/" + code + "/players/" + ME.pid).set(enc(Object.assign({ cats: [] }, cur, { name, key: await myKey(), at: cur.at || Date.now() })));
     S = dec(s.val()); view = "room"; history.replaceState(null, "", "#" + code); subscribe();
   }
   function leaveRoom() { unsubscribe(); if (ME) { ME.code = null; LS.set(MKEY, ME); } S = null; P = {}; HID = null; history.replaceState(null, "", location.pathname); goHome(); }
 
   /* ---------------- host ---------------- */
   function votes() { const v = {}; CATS.forEach(c => v[c.id] = 0); pids().forEach(id => (P[id].cats || []).forEach(c => { if (c in v) v[c]++; })); return v; }
-  const liesNow = () => { const o = {}; (S.order || []).forEach(id => { const e = P[id]; if (e && e.lie && e.lie.q === S.q.id && !(S.redo || []).includes(id + ":" + e.lie.n)) o[id] = e.lie; }); return o; };
-  const picksNow = () => { const o = {}; (S.order || []).forEach(id => { const e = P[id]; if (e && e.pick && e.pick.q === S.q.id) o[id] = e.pick.opt; }); return o; };
+  // host only: the decrypted lies / picks for the current question
+  const liesNow = () => { const o = {}; (S.order || []).forEach(id => { const e = DEC[id] && DEC[id].lie; if (e && e.q === S.q.id && !(S.redo || []).includes(id + ":" + e.n)) o[id] = e; }); return o; };
+  const picksNow = () => { const o = {}; (S.order || []).forEach(id => { const e = DEC[id] && DEC[id].pick; if (e && e.q === S.q.id) o[id] = e.opt; }); return o; };
   async function hostStart() {
     const ids = pids();
     if (ids.length < 2) return "تحتاجون لاعبين على الأقل.";
+    const noKey = ids.filter(id => !P[id].key);
+    if (noKey.length) return "لازم " + noKey.map(id => P[id].name).join(" و") + " يحدّث الصفحة.";
     const v = votes();
     let chosen = CATS.map(c => c.id).filter(id => v[id] > 0);
     if (!chosen.length) chosen = CATS.map(c => c.id);
@@ -136,9 +164,8 @@
     const names = {}; ids.forEach(id => names[id] = P[id].name);
     const scores = {}; ids.forEach(id => scores[id] = 0);
     const game = (S.game || 0) + 1;
-    HID = { game, qs, owners: null };
-    await ref("hidden").set(enc(HID));
-    await writeState({ game, phase: "write", idx: 0, total: qs.length, order: ids, names, scores, used: used.concat(qs.map(q => q.key)), q: pub(qs[0], 0, game), redo: [], opts: null, reveal: null });
+    await saveHidden({ game, qs, owners: null });
+    await writeState({ game, hk: await myKey(), phase: "write", idx: 0, total: qs.length, order: ids, names, scores, used: used.concat(qs.map(q => q.key)), q: pub(qs[0], 0, game), redo: [], opts: null, reveal: null });
     return "";
   }
   function pub(q, i, game) { return { id: game + "-" + i + "-" + rid(3), i, text: q.q, img: q.img || null, cat: q.cat }; }
@@ -151,7 +178,7 @@
       if (S.phase === "write") {
         // a lie that equals the truth must be rewritten
         const q = HID.qs[S.idx], redo = (S.redo || []).slice(); let ch = false;
-        (S.order || []).forEach(id => { const e = P[id]; if (e && e.lie && e.lie.q === S.q.id && isTruth(e.lie.text, q.a) && !redo.includes(id + ":" + e.lie.n)) { redo.push(id + ":" + e.lie.n); ch = true; } });
+        (S.order || []).forEach(id => { const e = DEC[id] && DEC[id].lie; if (e && e.q === S.q.id && isTruth(e.text, q.a) && !redo.includes(id + ":" + e.n)) { redo.push(id + ":" + e.n); ch = true; } });
         if (ch) { await writeState({ redo }); return; }
         if (Object.keys(liesNow()).length >= S.order.length || el > WRITE_S + 1) await hostToPick();
       } else if (S.phase === "pick") {
@@ -162,9 +189,11 @@
   async function hostToPick() {
     const q = HID.qs[S.idx]; const lies = {}; Object.entries(liesNow()).forEach(([id, l]) => lies[id] = l.text);
     const { opts, owners } = buildOptions(q.a, lies);
-    HID = Object.assign({}, HID, { owners, ownersFor: S.q.id }); await ref("hidden").set(enc(HID));
-    const authors = {}; Object.entries(owners).forEach(([o, own]) => { if (own !== "truth") own.forEach(p => authors[p] = o); });
-    await writeState({ phase: "pick", opts, mine: authors });
+    await saveHidden(Object.assign({}, HID, { owners, ownersFor: S.q.id }));
+    // each liar learns which option is theirs (sealed to them), nobody else does
+    const mine = {};
+    await Promise.all(Object.entries(owners).flatMap(([o, own]) => own === "truth" ? [] : own.filter(p => P[p] && P[p].key).map(async p => { mine[p] = await FNC.seal(P[p].key, o); })));
+    await writeState({ phase: "pick", opts, mine });
   }
   async function hostReveal() {
     const owners = HID.owners || {}; const picks = picksNow();
@@ -222,7 +251,7 @@
     const img = S.q && S.q.img ? `<img class="qimg" src="${esc(S.q.img)}" alt="" onerror="this.remove()">` : "";
     const qtext = S.q ? `<p class="stmt">${esc(S.q.text)}</p>` : "";
     if (S.phase === "write") {
-      const e = myEntry().lie, mine = e && e.q === S.q.id ? e : null;
+      const e = myEntry().lie, mine = e && e.q === S.q.id ? Object.assign({}, e, { text: DEC[ME.pid] && DEC[ME.pid].lie && DEC[ME.pid].lie.n === e.n ? DEC[ME.pid].lie.text : "…" }) : null;
       const redo = mine && (S.redo || []).includes(ME.pid + ":" + mine.n);
       const done = (S.order || []).filter(id => { const x = P[id] && P[id].lie; return x && x.q === S.q.id && !(S.redo || []).includes(id + ":" + x.n); });
       app.innerHTML = `<div class="card">${head}${img}${qtext}${timerBar()}
@@ -235,7 +264,7 @@
       startTimer(WRITE_S); return;
     }
     if (S.phase === "pick") {
-      const p = myEntry().pick, mine = p && p.q === S.q.id ? p.opt : null, myOpt = (S.mine || {})[ME.pid];
+      const p = myEntry().pick, mp = DEC[ME.pid] && DEC[ME.pid].pick, mine = p && p.q === S.q.id ? (mp && mp.q === S.q.id ? mp.opt : "?") : null, myOpt = MYOPT && MYOPT.q === S.q.id ? MYOPT.opt : null;
       const done = (S.order || []).filter(id => P[id] && P[id].pick && P[id].pick.q === S.q.id);
       app.innerHTML = `<div class="card">${head}${img}${qtext}${timerBar()}
         <p class="note center">${mine ? "اخترت ✓ ننتظر الباقين…" : "وش الجواب الصحيح؟"}</p>
@@ -274,9 +303,10 @@
         const t = (document.getElementById("fLie").value || "").trim();
         if (!t) return;
         const prev = myEntry().lie; const n = prev && prev.q === S.q.id ? (prev.n || 0) + 1 : 1;
-        draft = ""; await writeMe({ lie: { q: S.q.id, text: t, n } }); render(); return;
+        if (!S.hk) return;
+        draft = ""; await writeMe({ lie: { q: S.q.id, n, s: await FNC.seal(S.hk, t), m: await FNC.seal(await myKey(), t) } }); render(); return;
       }
-      if (b.dataset.pick && S.phase === "pick") { await writeMe({ pick: { q: S.q.id, opt: b.dataset.pick } }); render(); return; }
+      if (b.dataset.pick && S.phase === "pick") { if (!S.hk) return; const o = b.dataset.pick; await writeMe({ pick: { q: S.q.id, s: await FNC.seal(S.hk, o), m: await FNC.seal(await myKey(), o) } }); render(); return; }
       if (a === "copy") { try { await navigator.clipboard.writeText(joinURL(ME.code)); b.textContent = "انتسخ ✓"; } catch (e) { b.textContent = joinURL(ME.code); } return; }
       if (a === "leave") { leaveRoom(); return; }
       if (!isHost()) return;

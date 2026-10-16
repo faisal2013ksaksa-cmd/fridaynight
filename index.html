@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="fncrypto.js"></script>
 <script src="shim.js"></script>
 <style>
 /* Layout: a bright party-game board — lavender ground, white rounded cards; setup is one long page (name, teams, category cards with photos, settings) and the board is a grid of category columns, each with its cover and six cells */
@@ -841,19 +842,20 @@ const pName=p=>String(p.presence.name||"لاعب").slice(0,24);
 /* leader: the earliest-joined player still in the room drives the game
    from their phone by sending numbered commands in presence; this device
    checks each one against the current state before running it. */
-let LEADER=null,CMDSEEN={},PEEK=null;
+let LEADER=null,CMDSEEN={},PEEK=null,PEEKN=0;
 function pickLeader(){
   const ps=players();
   let cur=LEADER&&ps.find(p=>p.peer===LEADER.peer);
   if(!cur)cur=ps.slice().sort((a,b)=>(+a.presence.at||9e15)-(+b.presence.at||9e15))[0]||null;
-  const nl=cur?{peer:cur.peer,name:pName(cur),mgr:!!cur.presence.mgr&&typeof cur.presence.team!=="number"}:null;
+  const nl=cur?{peer:cur.peer,name:pName(cur),mgr:!!cur.presence.mgr&&typeof cur.presence.team!=="number",key:cur.presence.key||null}:null;
   const ch=JSON.stringify(nl)!==JSON.stringify(LEADER);LEADER=nl;return ch;
 }
 function hostPeek(){
   if(!HR)return;
-  const v=LEADER&&LEADER.mgr&&Q&&!Q.revealed?{k:Q.id,a:String(Q.q.a||"").slice(0,300),to:LEADER.peer}:null;
-  const s=JSON.stringify(v);if(s===PEEK)return;PEEK=s;
-  try{Promise.resolve(HR.presence({role:"host",ans:v})).catch(()=>{})}catch(e){}
+  /* the answer goes to the leader sealed with their key (fncrypto.js): presence is readable by anyone in the room */
+  const v=LEADER&&LEADER.mgr&&LEADER.key&&Q&&!Q.revealed?{k:Q.id,a:String(Q.q.a||"").slice(0,300),to:LEADER.peer,key:LEADER.key}:null;
+  const s=JSON.stringify(v);if(s===PEEK)return;PEEK=s;const n=++PEEKN;
+  (v?FNC.seal(v.key,v.a).then(box=>({k:v.k,to:v.to,s:box})):Promise.resolve(null)).then(ans=>{if(n!==PEEKN)return;try{Promise.resolve(HR.presence({role:"host",ans})).catch(()=>{})}catch(e){}}).catch(()=>{});
 }
 function runCmd(c){
   const a=c.a;
@@ -953,7 +955,7 @@ async function rJoin(){
   else{
     try{
       R.room=await ROOM.join(roomName(code));
-      R.mgr=false;Promise.resolve(R.room.presence({role:R.role,name:R.role==="player"?name:"شاشة عرض",team:R.role==="player"?R.team:null,mgr:false,at:Date.now(),buzz:null,pick:null,cmd:null})).catch(toWatch);
+      R.mgr=false;Promise.resolve(R.room.presence({role:R.role,name:R.role==="player"?name:"شاشة عرض",team:R.role==="player"?R.team:null,mgr:false,at:Date.now(),buzz:null,pick:null,cmd:null,key:await FNC.pub().catch(()=>null)})).catch(toWatch);
       R.room.onPeers(ch=>{R.peers=ch.peers;if(R.joined)rRender()},toWatch);
     }catch(e){R.watch=true;R.room=null}
   }
@@ -1010,7 +1012,8 @@ function rRender(){
     const q=st.q,left=rLeft(),buzzed=R.buzzQ===q.id,canBuzz=me&&!mgr&&!q.revealed&&!buzzed;
     const pts=i=>q.p*(q.dbl===i?2:1);
     const host=R.peers.find(p=>p.presence&&p.presence.role==="host"),pk=host&&host.presence.ans;
-    const peek=mgr&&!q.revealed&&pk&&pk.k===q.id&&pk.to===rMe()?`<div class="answer peek"><small>الإجابة (تشوفها أنت بس)</small><div class="a">${esc(pk.a)}</div></div>`:"";
+    let pa=null;if(mgr&&!q.revealed&&pk&&pk.k===q.id&&pk.to===rMe()&&pk.s){if(R.peekDec&&R.peekDec.c===pk.s.c)pa=R.peekDec.a;else if(R.peekWant!==pk.s.c){R.peekWant=pk.s.c;FNC.open(pk.s).then(a=>{if(typeof a==="string"){R.peekDec={c:pk.s.c,a};rRender()}})}}
+    const peek=pa!==null?`<div class="answer peek"><small>الإجابة (تشوفها أنت بس)</small><div class="a">${esc(pa)}</div></div>`:"";
     let ctl="";
     if(L&&!q.revealed){
       const dbl=st.dblOn?teams.map((t,i)=>(t.dbl||q.dbl===i)?`<button type="button" style="--c:${tc(i)}" class="${q.dbl===i?"on":""}" data-ld="${i}">${q.dbl===i?"×2 مفعّلة":"×2"} ${esc(t.name)}</button>`:"").join(""):"";
