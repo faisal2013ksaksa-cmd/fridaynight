@@ -100,7 +100,10 @@
     if (revealed && isSpy(cat)) return `<div class="role spy"><small>القسم: ${esc(cat.emoji)} ${esc(cat.name)}</small><small>المكان</small><span class="big">${esc(word)}</span></div>`;
     const catTxt = cat ? `القسم: ${esc(cat.emoji)} ${esc(cat.name)}` : "";
     if (!revealed) return `<button type="button" class="role${isSpy(cat) ? " spy" : ""}" data-act="reveal"><span class="tap">👆</span><span class="big">اضغط وشوف دورك</span><small>${catTxt}</small></button>`;
-    return `<div class="role"><small>${catTxt}</small>${isOut ? `<span class="big">أنت برا السالفة 🤫</span><small>حاول تتخفى وتعرف الكلمة</small>` : `<small>الكلمة</small><span class="big">${esc(word)}</span>`}</div>`;
+    // both cards have the exact same layout, so nobody can tell from a glance at the screen
+    return `<div class="role"><small>${catTxt}</small>${isOut
+      ? `<small>دورك</small><span class="big">برا السالفة</span><small>تخفّى وحاول تعرف الكلمة</small>`
+      : `<small>الكلمة</small><span class="big">${esc(word)}</span><small>لا تقولها، اسأل عنها بذكاء</small>`}</div>`;
   }
   function scoreTable(ids, nameOf, scores, deltas) {
     const rows = ids.slice().sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
