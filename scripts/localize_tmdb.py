@@ -1,10 +1,10 @@
-"""Download every image.tmdb.org picture used in index.html into img/
+"""Download every image.tmdb.org picture used in seenjeem/index.html into img/
 and point the game at the local copy (adds it to BUNDLED).
 Safe to re-run: already-downloaded images are skipped."""
 import re, sys, time, urllib.request, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-html_path = ROOT / "index.html"
+html_path = ROOT / "seenjeem" / "index.html"
 html = html_path.read_text(encoding="utf-8")
 urls = sorted(set(re.findall(r'https://image\.tmdb\.org/t/p/\w+/([A-Za-z0-9_-]+)\.jpg', html)))
 print(f"{len(urls)} TMDB images")

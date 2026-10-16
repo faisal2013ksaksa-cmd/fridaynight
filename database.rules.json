@@ -66,6 +66,46 @@
           }
         }
       }
+    },
+    "mf": {
+      "$code": {
+        ".read": true,
+        "state": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 100000"
+        },
+        "players": {
+          "$pid": {
+            ".write": true,
+            ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 3000"
+          }
+        }
+      }
+    },
+    "draw": {
+      "$code": {
+        ".read": true,
+        "state": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 100000"
+        },
+        "hidden": {
+          ".write": true,
+          ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 5000"
+        },
+        "players": {
+          "$pid": {
+            ".write": true,
+            ".validate": "!newData.exists() || newData.child('j').isString() && newData.child('j').val().length < 3000"
+          }
+        },
+        "strokes": {
+          ".write": true,
+          "$s": {
+            ".validate": "!newData.exists() || $s.matches(/^s[0-9]{4}$/) && newData.child('j').isString() && newData.child('j').val().length < 30000"
+          }
+        }
+      }
     }
   }
 }

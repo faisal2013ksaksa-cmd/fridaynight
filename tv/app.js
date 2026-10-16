@@ -121,7 +121,7 @@
     c = c.trim().toUpperCase();
     if (/^[A-Z]{2}[0-9]{3}$/.test(c)) { // سين جيم: open its own display screen
       try { localStorage.setItem("seenjeem-remote-v1", JSON.stringify({ code: c, name: "", role: "display", team: null })); } catch (e) {}
-      location.href = base + "#" + c; return;
+      location.href = base + "seenjeem/#" + c; return;
     }
     if (!/^[A-Z]{4}$/.test(c)) { msgEl.textContent = "اكتب رمز الغرفة: 4 حروف، أو حرفين و3 أرقام لسين جيم."; return; }
     if (!db) { msgEl.textContent = "ما قدرت أتصل. حدّث الصفحة."; return; }

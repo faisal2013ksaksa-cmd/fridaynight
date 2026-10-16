@@ -174,10 +174,19 @@ td.plus{color:var(--good)}
 .titles li b{font-family:var(--f-display);font-size:18px}
 .titles li span{color:var(--muted);font-weight:700;font-size:14px}
 </style>
+<style>
+/* games bar: one row that scrolls sideways on phones */
+.gamesbar{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:10px 16px 6px}
+.gamesbar::-webkit-scrollbar{display:none}
+.gamesbar a{flex:none;white-space:nowrap}
+.gamesbar a.site{background:none;box-shadow:none;padding:5px 2px;color:var(--ink);font-family:var(--f-display);font-size:14px;direction:ltr}
+.gamesbar a.site img{vertical-align:-5px;margin-inline-end:4px}
+@media (min-width:820px){.gamesbar{justify-content:center!important;margin-inline:0;padding-inline:0}}
+</style>
 </head>
 <body>
 <div class="wrap">
-  <nav class="gamesbar" aria-label="الألعاب"><span class="site"><img src="../favicon-64.png" alt="" width="22" height="22" style="vertical-align:-5px;margin-inline-start:4px">Friday Night</span><a href="../">🎬 سين جيم</a><a href="../outside/">🤫 برا السالفة</a><a href="./" class="on">🤥 صدق ولا كذب</a><a href="../tv/">📺 شاشة العرض</a></nav>
+  <nav class="gamesbar" aria-label="الألعاب"><a class="site" href="../" aria-label="الصفحة الرئيسية"><img src="../favicon-64.png" alt="" width="22" height="22">Friday Night</a><a href="../seenjeem/">🎬 سين جيم</a><a href="../outside/">🤫 برا السالفة</a><a href="../sedq/">🤥 صدق ولا كذب</a><a href="../mf/">👀 مين فينا؟</a><a href="../draw/" class="on" aria-current="page">🎨 ارسم وخمّن</a><a href="../tv/">📺 شاشة العرض</a></nav>
   <header>
     <div class="brand"><span class="logo" style="background:var(--pink)">🎨</span><span>ارسم وخمّن</span></div>
     <span class="hdr-r"><span class="chip" id="hdrChip" hidden></span><button type="button" class="ghost" id="newBtn" hidden>🏠 لعبة جديدة</button></span>
@@ -191,5 +200,6 @@ td.plus{color:var(--good)}
 <script src="../fncrypto.js"></script>
 <script src="board.js"></script>
 <script src="app.js"></script>
+<script>try{document.querySelector(".gamesbar .on").scrollIntoView({inline:"center",block:"nearest"})}catch(e){}</script>
 </body>
 </html>
