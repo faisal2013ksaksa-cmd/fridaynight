@@ -36,25 +36,32 @@
     return { cat, word };
   }
   const maxOuts = n => Math.max(1, Math.floor((n - 1) / 2));
-  // fair outsider pick: hist = {c:{id:times out}, last:[ids out last round]}
-  // last round's outsiders sit out (when possible); players who were out less get more weight.
+  // fair outsider pick: hist = {c:{id:times out}, last:[ids out last round], s:{id:rounds out in a row}}
+  // Fair but not predictable: nobody is out 3 rounds in a row, and players who were out
+  // more often (or last round) get a slightly lower chance — never zero, so the history
+  // doesn't tell players who it is.
+  const OUT_BAL = 0.8, OUT_LAST = 0.8, OUT_STREAK = 2;
   function pickOuts(ids, k, hist) {
-    const c = (hist && hist.c) || {}, last = (hist && hist.last) || [];
-    let pool = ids.filter(id => !last.includes(id));
-    if (pool.length < k) pool = ids.slice();
-    const outs = [];
+    const c = (hist && hist.c) || {}, last = (hist && hist.last) || [], st = (hist && hist.s) || {};
+    const pool = ids.slice(), outs = [];
     while (outs.length < k && pool.length) {
       const min = Math.min(...pool.map(id => c[id] || 0));
-      const w = pool.map(id => Math.pow(4, min - (c[id] || 0)));
-      let r = rnd() * w.reduce((a, b) => a + b, 0), i = 0;
+      let w = pool.map(id => {
+        if (last.includes(id) && (st[id] || 1) >= OUT_STREAK) return 0;
+        return Math.pow(OUT_BAL, (c[id] || 0) - min) * (last.includes(id) ? OUT_LAST : 1);
+      });
+      let tot = w.reduce((a, b) => a + b, 0);
+      if (!(tot > 0)) { w = pool.map(() => 1); tot = pool.length; }
+      let r = rnd() * tot, i = 0;
       while (i < pool.length - 1 && (r -= w[i]) >= 0) i++;
       outs.push(pool[i]); pool.splice(i, 1);
     }
     return outs;
   }
   function addOutHist(hist, outs) {
-    const h = { c: Object.assign({}, (hist && hist.c) || {}), last: outs.slice() };
-    outs.forEach(id => h.c[id] = (h.c[id] || 0) + 1);
+    const last = (hist && hist.last) || [], st = (hist && hist.s) || {};
+    const h = { c: Object.assign({}, (hist && hist.c) || {}), last: outs.slice(), s: {} };
+    outs.forEach(id => { h.c[id] = (h.c[id] || 0) + 1; h.s[id] = last.includes(id) ? (st[id] || 1) + 1 : 1; });
     return h;
   }
   function makeRound(ids, catChoice, outCount, used, hist) {
@@ -200,10 +207,10 @@
     const byName = {}; Object.entries(PS.scores).forEach(([id, v]) => { const n = (PS.idNames || {})[id]; if (n) byName[n] = v; });
     PS.scores = {}; ids.forEach(id => { if (byName[pName(id)] != null) PS.scores[id] = byName[pName(id)]; });
     PS.idNames = {}; ids.forEach(id => PS.idNames[id] = pName(id));
-    const oh = PS.oh || { c: {}, last: [] }, hist = { c: {}, last: ids.filter(id => oh.last.includes(pName(id))) };
-    ids.forEach(id => hist.c[id] = oh.c[pName(id)] || 0);
+    const oh = PS.oh || { c: {}, last: [], s: {} }, ohs = oh.s || {}, hist = { c: {}, s: {}, last: ids.filter(id => oh.last.includes(pName(id))) };
+    ids.forEach(id => { hist.c[id] = oh.c[pName(id)] || 0; if (ohs[pName(id)]) hist.s[id] = ohs[pName(id)]; });
     PS.R = makeRound(ids, PS.cat, PS.outs, PS.used, hist);
-    PS.oh = addOutHist({ c: oh.c }, PS.R.outs.map(pName));
+    PS.oh = addOutHist({ c: oh.c, last: oh.last, s: ohs }, PS.R.outs.map(pName));
     PS.step = "roles"; PS.idx = 0; PS.shown = false; PS.votes = {}; PS.guesses = {}; PS.pick = null;
     renderPass();
   }
