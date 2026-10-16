@@ -9,11 +9,17 @@
   const CFG = self.FIREBASE_CONFIG; let db = null;
   try { if (CFG && CFG.databaseURL && self.firebase) { firebase.initializeApp(CFG); db = firebase.database(); } } catch (e) { console.error(e); }
   const base = location.origin + location.pathname.replace(/tv\/?(index\.html)?$/, "");
-  let game = null, code = "", S = null, P = {}, CATS = [], subs = [], stepStart = 0, lastStep = "", tick = null;
+  let game = null, code = "", S = null, P = {}, CATS = [], MFCATS = [], subs = [], stepStart = 0, lastStep = "", tick = null;
+  // 4-letter room codes: one entry per game (db path → folder + label)
+  const GAMES = {
+    sq: { dir: "sedq/", label: "🤥 صدق ولا كذب" },
+    bs: { dir: "outside/", label: "🤫 برا السالفة" },
+    mf: { dir: "mf/", label: "👀 مين فينا؟" },
+  };
 
   function qrImg(text) { try { const d = document.createElement("div"); new QRCode(d, { text, width: 260, height: 260, colorDark: "#2b1745", colorLight: "#ffffff" }); const c = d.querySelector("canvas"); return c ? `<img class="qr" src="${c.toDataURL()}" alt="">` : ""; } catch (e) { return ""; } }
   function sideHTML() {
-    const join = base + (game === "bs" ? "outside/" : "sedq/") + "#" + code;
+    const join = base + GAMES[game].dir + "#" + code;
     return `<aside class="card side center"><span class="lbl">ادخلوا من جوالاتكم</span><div class="code">${esc(code)}</div>${qrImg(join)}<p class="note" dir="ltr">${esc(join.replace(/^https?:\/\//, "").replace(/#.*/, ""))}</p></aside>`;
   }
   const nameOf = id => (P[id] && P[id].name) || (S && S.names && S.names[id]) || "؟";
@@ -41,6 +47,17 @@
     if (S.phase === "end") { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); const m = ["🥇", "🥈", "🥉"]; return `<div class="card"><p class="tvtitle">النتيجة النهائية 🏆</p><div class="podium">${ids.map((id, i) => `<div><span>${m[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div></div>`; }
     return "";
   }
+  /* ---------- مين فينا ---------- */
+  function renderMF() {
+    const order = S.order || [], cat = S.q && MFCATS.find(c => c.id === S.q.cat);
+    const head = S.q ? `<p class="tvsub">السؤال ${S.idx + 1} من ${S.total}${cat ? " · " + esc(cat.emoji + " " + cat.name) : ""}</p>` : "";
+    const q = S.q ? `<p class="tvq">${esc(S.q.text)}</p>` : "";
+    if (S.phase === "lobby") return `<div class="card"><p class="tvtitle">👀 مين فينا؟</p><p class="tvsub">اللاعبين (${lobbyIds().length}) · ننتظر صاحب الغرفة يبدأ</p>${plist(lobbyIds())}</div>`;
+    if (S.phase === "vote") return `<div class="card">${head}${q}${timer(30)}<p class="tvsub">🗳️ صوّتوا من جوالاتكم… التصويت سري</p>${plist(order, id => P[id] && P[id].vote && S.q && P[id].vote.q === S.q.id)}</div>`;
+    if (S.phase === "reveal") { const r = S.reveal || { counts: {}, winners: [] }; return `<div class="card">${head}${q}<p class="tvtitle">${r.winners.length ? "👑 " + esc(r.winners.map(nameOf).join(" و")) : "ما أحد صوّت"}</p>${bars(order, r.counts, r.winners, "win")}</div><div class="card"><h2>الترتيب</h2>${scoreTable(r.deltas)}</div>`; }
+    if (S.phase === "end") { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); const m = ["🥇", "🥈", "🥉"]; return `<div class="card"><p class="tvtitle">الألقاب 👑</p><ul class="pairs tvpairs">${(S.titles || []).map(t => `<li>${esc(t.w.map(nameOf).join(" و"))} <i>${esc(String(t.q).replace(/^مين فينا\s*/, "").replace(/؟$/, ""))}</i></li>`).join("")}</ul></div><div class="card"><h2>النتيجة النهائية 🏆</h2><div class="podium">${ids.map((id, i) => `<div><span>${m[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div></div>`; }
+    return "";
+  }
   /* ---------- برا السالفة ---------- */
   function renderBS() {
     const order = S.order || [], spy = S.catInfo && S.catInfo.mode === "spy";
@@ -54,7 +71,7 @@
     if (S.phase === "results") { const r = S.results || {}; return `<div class="card">${cat}<p class="tvtitle">${spy ? "المكان كان" : "الكلمة كانت"} <span class="word">${esc(r.word)}</span></p>${spy && r.spyWord ? `<p class="tvsub">والجاسوس كان طالع له: ${esc(r.spyWord)}</p>` : ""}${bars(order, r.counts || {}, r.outs || [])}</div><div class="card"><h2>النقاط</h2>${scoreTable(r.deltas)}</div>`; }
     return "";
   }
-  function bars(order, counts, outs) { const max = Math.max(1, ...order.map(id => counts[id] || 0)); return `<div class="bars">${order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).map(id => `<div class="bar ${outs.includes(id) ? "out" : ""}"><span>${esc(nameOf(id))}</span><span class="tr"><i style="width:${((counts[id] || 0) / max) * 100}%"></i></span><span>${counts[id] || 0}</span></div>`).join("")}</div>`; }
+  function bars(order, counts, outs, cls) { const max = Math.max(1, ...order.map(id => counts[id] || 0)); return `<div class="bars">${order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).map(id => `<div class="bar ${outs.includes(id) ? cls || "out" : ""}"><span>${esc(nameOf(id))}</span><span class="tr"><i style="width:${((counts[id] || 0) / max) * 100}%"></i></span><span>${counts[id] || 0}</span></div>`).join("")}</div>`; }
 
   function render() {
     if (!game) return;
@@ -62,12 +79,12 @@
     const key = S.phase + ":" + (S.q ? S.q.id : S.round || ""); if (key !== lastStep) { lastStep = key; stepStart = Date.now(); }
     const bg = game === "bs" && S.catInfo && S.catInfo.image && S.phase !== "lobby" ? "../outside/" + S.catInfo.image : null;
     document.body.classList.toggle("catbg", !!bg); document.body.style.setProperty("--catbg", bg ? `url("${bg}")` : "none");
-    const main = game === "sq" ? renderSQ() : renderBS();
+    const main = game === "sq" ? renderSQ() : game === "mf" ? renderMF() : renderBS();
     app.innerHTML = `<div class="tvgrid"><div>${main}</div>${sideHTML()}</div>`;
   }
   function watch(g, c) {
     game = g; code = c; S = null; P = {};
-    chip.hidden = false; chip.innerHTML = `${g === "sq" ? "🤥 صدق ولا كذب" : "🤫 برا السالفة"} · <b dir="ltr">${esc(c)}</b>`; newBtn.hidden = false;
+    chip.hidden = false; chip.innerHTML = `${GAMES[g].label} · <b dir="ltr">${esc(c)}</b>`; newBtn.hidden = false;
     const r = db.ref(g + "/" + c);
     const on = (ref, cb) => { const h = s => cb(s.val()); ref.on("value", h); subs.push(() => ref.off("value", h)); };
     on(r.child("state"), v => { S = dec(v); render(); });
@@ -81,14 +98,16 @@
       try { localStorage.setItem("seenjeem-remote-v1", JSON.stringify({ code: c, name: "", role: "display", team: null })); } catch (e) {}
       location.href = base + "#" + c; return;
     }
-    if (!/^[A-Z]{4}$/.test(c)) { msgEl.textContent = "اكتب رمز الغرفة: 4 حروف (برا السالفة / صدق ولا كذب) أو حرفين و3 أرقام (سين جيم)."; return; }
+    if (!/^[A-Z]{4}$/.test(c)) { msgEl.textContent = "اكتب رمز الغرفة: 4 حروف، أو حرفين و3 أرقام لسين جيم."; return; }
     if (!db) { msgEl.textContent = "ما قدرت أتصل. حدّث الصفحة."; return; }
     msgEl.textContent = "يدوّر على الغرفة…";
     try {
-      const [a, b] = await Promise.all([db.ref("sq/" + c + "/state").get(), db.ref("bs/" + c + "/state").get()]);
-      const ta = a.exists() ? (dec(a.val()) || {}).at || 1 : 0, tb = b.exists() ? (dec(b.val()) || {}).at || 1 : 0;
-      if (!ta && !tb) { msgEl.textContent = "ما لقيت غرفة بهالرمز."; return; }
-      watch(ta >= tb ? "sq" : "bs", c);
+      // the same code can exist in more than one game: show the newest room
+      const keys = Object.keys(GAMES), snaps = await Promise.all(keys.map(g => db.ref(g + "/" + c + "/state").get().catch(() => null)));
+      let best = null, bt = 0;
+      snaps.forEach((sn, i) => { if (sn && sn.exists()) { const t = (dec(sn.val()) || {}).at || 1; if (t > bt) { bt = t; best = keys[i]; } } });
+      if (!best) { msgEl.textContent = "ما لقيت غرفة بهالرمز."; return; }
+      watch(best, c);
     } catch (e) { msgEl.textContent = "ما قدرت أتصل. تأكد من النت."; }
   }
   function home(msg) {
@@ -99,12 +118,13 @@
       <p class="note">افتحوا غرفة من الجوال في أي لعبة، واكتبوا رمزها هنا.</p>
       <input id="tvCode" class="inp codein" maxlength="5" autocomplete="off" placeholder="ABCD">
       <button type="button" class="btn" id="tvGo">اعرض الغرفة</button><p class="err" id="tvMsg">${esc(msg || "")}</p>
-      <p class="note">تشتغل مع: 🎬 سين جيم · 🤫 برا السالفة · 🤥 صدق ولا كذب</p></div>`;
+      <p class="note">تشتغل مع: 🎬 سين جيم · ${Object.values(GAMES).map(g => g.label).join(" · ")}</p></div>`;
     const inp = document.getElementById("tvCode"), go = () => connect(inp.value, document.getElementById("tvMsg"));
     document.getElementById("tvGo").onclick = go; inp.onkeydown = e => { if (e.key === "Enter") go(); }; inp.focus();
   }
   newBtn.onclick = () => home();
   fetch("../sedq/questions.json").then(r => r.json()).then(d => { CATS = d.categories; render(); }).catch(() => {});
+  fetch("../mf/questions.json").then(r => r.json()).then(d => { MFCATS = d.categories; render(); }).catch(() => {});
   const h = (location.hash || "").replace("#", "");
   home(); if (h) connect(h, document.getElementById("tvMsg"));
 })();
