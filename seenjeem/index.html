@@ -376,7 +376,7 @@ body.tv .media img.up{max-height:60vh}
       <div class="actions" style="justify-content:center"><button type="button" class="btn alt sm" id="copyLink">انسخ رابط الدخول</button><button type="button" class="btn alt sm" id="copyCode">انسخ الرمز</button></div>
       <p class="note-s linkt" id="linkText" dir="ltr"></p>
       <span class="crown" id="leadNote"></span>
-      <p class="note-s">صوّروا الباركود أو أرسلوا الرابط لأخوياكم. <b>أول واحد يدخل يصير قائد اللعبة</b> ويديرها من جواله، وهالجهاز يصير شاشة العرض.</p></div>
+      <p class="note-s">صوّروا الباركود أو أرسلوا الرابط لأخوياكم. كل واحد يختار فريقه من جواله، وأنت تبدأ اللعبة من هنا.</p></div>
     <div class="card"><div class="sec-h"><h2>اللاعبين</h2><span class="count" id="pCount">0</span></div><div class="lteams" id="lTeams"></div><p class="note-s" id="dispNote"></p></div>
     <p class="note-s err" id="roomErr" hidden></p>
     <div class="actions" style="justify-content:center"><button type="button" class="btn" id="lStart">ابدأ اللعب</button><button type="button" class="ghost" id="lClose">أغلق الغرفة</button></div>
@@ -389,7 +389,7 @@ body.tv .media img.up{max-height:60vh}
       <div class="field"><span class="lbl">أدخل كـ</span><div class="seg"><button type="button" data-role="player">لاعب</button><button type="button" data-role="display">شاشة عرض</button></div></div>
       <div class="field" id="jNameF"><label for="jName">اسمك</label><input id="jName" maxlength="20" placeholder="مثلاً: فيصل"></div>
       <button type="button" class="btn" id="jGo">دخول</button>
-      <p class="note-s" id="jMsg">أول لاعب يدخل يصير 👑 قائد اللعبة ويديرها من جواله. شاشة العرض للتلفزيون أو اللابتوب: تعرض اللوحة والأسئلة والنتائج للكل.</p>
+      <p class="note-s" id="jMsg">صاحب الغرفة 👑 يبدأ اللعبة، وكل فريق يتحكم بسؤاله من جواله لما يجي دوره. شاشة العرض للتلفزيون أو اللابتوب: تعرض اللوحة والأسئلة والنتائج للكل.</p>
     </div>
     <div id="rLive" hidden></div>
   </section>
@@ -565,7 +565,7 @@ function allCats(){return [...BUILTIN.map(c=>({...c,mine:false})),...MY.filter(c
 function renderSetup(){
   const canOnline=EDIT&&!!DB&&!!ROOM;$("modeCard").hidden=!canOnline;if(!canOnline)S.mode="local";
   document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===(S.mode||"local")));
-  $("modeNote").textContent=S.mode==="online"?"تفتح غرفة برمز وباركود، وجهازك يصير شاشة العرض. أول واحد يدخل بالباركود يصير 👑 قائد اللعبة ويبدأها، وكل فريق يتحكم بسؤاله من جواله لما يجي دوره.":"كل اللعب على هالجهاز، وأنت المقدّم.";
+  $("modeNote").textContent=S.mode==="online"?"تفتح غرفة برمز وباركود، وأنت 👑 قائد اللعبة من جهازك، والباقين يدخلون بالباركود، وكل فريق يتحكم بسؤاله من جواله لما يجي دوره.":"كل اللعب على هالجهاز، وأنت المقدّم.";
   $("start").textContent=S.mode==="online"?"افتح الغرفة":"ابدأ اللعب";
   $("gName").value=S.gameName||"";$("tSel").value=String(S.time);$("dblOpt").checked=!!S.dblOn;renderTeams();renderCats()}
 function renderTeams(){
@@ -854,12 +854,9 @@ const pName=p=>String(p.presence.name||"لاعب").slice(0,24);
    from their phone by sending numbered commands in presence; this device
    checks each one against the current state before running it. */
 let LEADER=null,CMDSEEN={},PEEK=null,PEEKN=0;
+/* the device that opened the room is the leader: no player phone takes the lead */
 function pickLeader(){
-  const ps=players();
-  let cur=LEADER&&ps.find(p=>p.peer===LEADER.peer);
-  if(!cur)cur=ps.slice().sort((a,b)=>(+a.presence.at||9e15)-(+b.presence.at||9e15))[0]||null;
-  const nl=cur?{peer:cur.peer,name:pName(cur),mgr:!!cur.presence.mgr&&typeof cur.presence.team!=="number",key:cur.presence.key||null}:null;
-  const ch=JSON.stringify(nl)!==JSON.stringify(LEADER);LEADER=nl;return ch;
+  const ch=LEADER!==null;LEADER=null;return ch;
 }
 function hostPeek(){
   if(!HR)return;
@@ -929,7 +926,7 @@ function renderPeersUI(){
   if($("roomChip")){$("roomChip").hidden=false;$("roomChip").innerHTML=`الغرفة <b dir="ltr">${S.room.code}</b> · ${ps.length} لاعب${displays().length?` · ${displays().length} شاشة`:""}${LEADER?` · 👑 ${esc(LEADER.name)}`:""}`}
   if(S.phase==="lobby"){
     $("pCount").textContent=ps.length;
-    $("leadNote").textContent=LEADER?`👑 قائد اللعبة: ${LEADER.name}${LEADER.mgr?" (يدير بس)":""} — يبدأ اللعبة من جواله`:"👑 أول واحد يدخل يصير قائد اللعبة";
+    $("leadNote").textContent="👑 أنت قائد اللعبة: تبدأها من هنا، وكل فريق يتحكم بسؤاله من جواله لما يجي دوره";
     $("lTeams").innerHTML=S.teams.map((t,i)=>`<div class="lteam" style="--c:${tc(i)}"><b>${esc(t.name)}</b><div>${ps.filter(p=>p.presence.team===i).map(p=>`<span>${nm(p)}</span>`).join("")||`<em>ما أحد للحين</em>`}</div></div>`).join("")+
       (ps.some(p=>typeof p.presence.team!=="number")?`<div class="lteam" style="--c:var(--muted)"><b>بدون فريق</b><div>${ps.filter(p=>typeof p.presence.team!=="number").map(p=>`<span>${nm(p)}</span>`).join("")}</div></div>`:"");
     $("dispNote").textContent=displays().length?`شاشات العرض المتصلة: ${displays().length}`:"لشاشة العرض: افتحوا الرابط على التلفزيون أو اللابتوب واختاروا «شاشة عرض».";
@@ -938,7 +935,7 @@ function renderPeersUI(){
 async function openRoom(){
   if(!DB||!ROOM){$("startMsg").textContent="الغرف تحتاج إعداد Firebase أول (ملف firebase-config.js).";return}
   const code=genCode();
-  S.room={code,view:"tv"};S.phase="lobby";S.flash=null;BUZZ=[];LEADER=null;CMDSEEN={};PEEK=null;
+  S.room={code,view:"ctl"};S.phase="lobby";S.flash=null;BUZZ=[];LEADER=null;CMDSEEN={};PEEK=null;
   save();render();await hostJoin();sync();
 }
 async function closeRoom(){
@@ -1016,7 +1013,7 @@ function rRender(){
   const head=`<div class="rhead"><span class="roomchip">الغرفة <b dir="ltr">${esc(R.code)}</b>${me?` · ${esc(R.name)}${L?" 👑":""}`:R.role==="display"?" · شاشة عرض":" · متابع"}</span><button type="button" class="ghost" id="rLeaveBtn">اطلع</button></div>`;
   if(R.missing||!st){live.innerHTML=head+`<div class="card rwait"><h2>${R.missing?"ما لقينا غرفة بهالرمز":"جاري الاتصال…"}</h2><p>${R.missing?"تأكد من الرمز، أو انتظر اللي سوّى اللعبة يفتح الغرفة.":""}</p></div>`;return}
   const teams=st.teams||[],lead=st.leader;
-  const leadTxt=lead?`👑 قائد اللعبة: ${esc(lead.name)}`:"👑 أول لاعب يدخل يصير قائد اللعبة";
+  const leadTxt="👑 صاحب الغرفة يبدأ اللعبة";
   const scores=`<div class="scores" style="--n:${teams.length}">${teams.map((t,i)=>`<div class="score ${st.turn===i&&st.phase==="board"?"turn":""}" style="--c:${tc(i)}"><div class="meta"><span class="tg">${st.turn===i&&st.phase==="board"?"دورهم":(me&&R.team===i?"فريقك":(st.dblOn&&t.dbl?"×2 متاحة":"&nbsp;"))}</span><span class="nm">${esc(t.name)}</span></div><span class="pt">${t.score}</span></div>`).join("")}</div>`;
   let body="";
   if(st.phase==="lobby"){
@@ -1028,7 +1025,7 @@ function rRender(){
       <button type="button" class="btn" data-lc="start">ابدأ اللعب</button></div>`:"";
     body=leadBox+`<div class="card rlobby"><span class="lbl">${me?"ادخلوا بالرمز":"صوّروا الباركود بالجوال أو اكتبوا الرمز"}</span>${qu?`<img class="qr big" src="${qu}" alt="رمز QR للدخول">`:""}<div class="bigcode" dir="ltr">${esc(R.code)}</div><p class="note-s">${esc(st.gameName||"سين جيم")}</p>${L?"":`<span class="crown">${leadTxt}</span>`}</div>
       <div class="card"><div class="sec-h"><h2>${pickTeams?"اختار فريقك":"الفرق"}</h2></div><div class="lteams">${teams.map((t,i)=>`<${pickTeams?"button type=\"button\" data-team=\""+i+"\"":"div"} class="lteam ${me&&R.team===i?"mine":""}" style="--c:${tc(i)}"><b>${esc(t.name)}</b><div>${rPlayersOf(i).map(n=>`<span>${esc(n)}</span>`).join("")||"<em>ما أحد للحين</em>"}</div></${pickTeams?"button":"div"}>`).join("")}</div>
-      <p class="note-s">${L?"":me?(R.team===null?"اضغط على فريقك.":"ننتظر القائد يبدأ اللعبة…"):"ننتظر القائد يبدأ اللعبة…"}</p></div>`;
+      <p class="note-s">${L?"":me?(R.team===null?"اضغط على فريقك.":"ننتظر صاحب الغرفة يبدأ اللعبة…"):"ننتظر صاحب الغرفة يبدأ اللعبة…"}</p></div>`;
   }else if(st.phase==="end"){
     const r=teams.map((t,i)=>({...t,i})).sort((a,b)=>b.score-a.score),tie=r.length>1&&r[0].score===r[1].score;
     body=`<div class="card end"><h2>${tie?"تعادل!":`الفوز لـ ${esc(r[0].name)}`}</h2><div class="rank">${r.map(t=>`<div style="--c:${tc(t.i)}"><span>${esc(t.name)}</span><b>${t.score}</b></div>`).join("")}</div>${statsHTML(st.stats||[])}
