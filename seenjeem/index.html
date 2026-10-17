@@ -565,7 +565,7 @@ function allCats(){return [...BUILTIN.map(c=>({...c,mine:false})),...MY.filter(c
 function renderSetup(){
   const canOnline=EDIT&&!!DB&&!!ROOM;$("modeCard").hidden=!canOnline;if(!canOnline)S.mode="local";
   document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===(S.mode||"local")));
-  $("modeNote").textContent=S.mode==="online"?"تفتح غرفة برمز وباركود، وجهازك يصير شاشة العرض. أول واحد يدخل بالباركود يصير 👑 قائد اللعبة ويديرها من جواله، والباقين يضغطون الجرس من جوالاتهم.":"كل اللعب على هالجهاز، وأنت المقدّم.";
+  $("modeNote").textContent=S.mode==="online"?"تفتح غرفة برمز وباركود، وجهازك يصير شاشة العرض. أول واحد يدخل بالباركود يصير 👑 قائد اللعبة ويبدأها، وكل فريق يتحكم بسؤاله من جواله لما يجي دوره.":"كل اللعب على هالجهاز، وأنت المقدّم.";
   $("start").textContent=S.mode==="online"?"افتح الغرفة":"ابدأ اللعب";
   $("gName").value=S.gameName||"";$("tSel").value=String(S.time);$("dblOpt").checked=!!S.dblOn;renderTeams();renderCats()}
 function renderTeams(){
@@ -622,7 +622,7 @@ function statsList(){
   const none={};H.filter(h=>h.team<0).forEach(h=>{none[h.cat]=(none[h.cat]||0)+1});const hard=Object.entries(none).sort((a,b)=>b[1]-a[1])[0];
   if(hard)out.push({t:"أصعب فئة",v:`${hard[0]} · ${hard[1]} ${hard[1]===1?"سؤال":"أسئلة"} محد جاوبها`,c:null});
   const cnt=(key)=>{const m={};H.forEach(h=>{if(h[key])m[h[key]]=(m[h[key]]||0)+1});const e=Object.entries(m);if(!e.length)return null;const mx=Math.max(...e.map(x=>x[1]));return [e.filter(x=>x[1]===mx).map(x=>x[0]).join(" و "),mx]};
-  const fast=cnt("first");if(fast)out.push({t:"أسرع لاعب بالجرس",v:`${fast[0]} · أول واحد ${fast[1]} ${fast[1]===1?"مرة":"مرات"}`,c:null});
+
   const star=cnt("player");if(star)out.push({t:"نجم اللعبة",v:`${star[0]} · جاوب صح ${star[1]} ${star[1]===1?"مرة":"مرات"}`,c:null});
   return out;
 }
@@ -664,10 +664,9 @@ function drawQ(){
       <button type="button" class="ghost" id="tToggle"></button><button type="button" class="ghost" id="tReset">من جديد</button></div>`:""}
     ${dblBtns?`<div class="dbl">${dblBtns}</div>`:""}
     ${Q.revealed?`<div class="answer"><small>الإجابة</small><div class="a">${esc(q.a||"")}</div>${upMedia(q.am)}</div>
-      ${S.room&&BUZZ.some(b=>typeof b.team==="number")?`<div class="who-h">مين جاوب صح من اللي ضغطوا الجرس؟</div><div class="award">${BUZZ.map((b,j)=>typeof b.team==="number"?`<button type="button" data-awp="${j}" style="--c:${tc(b.team)}">${esc(b.name)} +${pts(b.team)}</button>`:"").join("")}</div><div class="who-h">أو اختار الفريق</div>`:`<div class="who-h">مين جاوب صح؟</div>`}
+      <div class="who-h">مين جاوب صح؟</div>
       <div class="award">${S.teams.map((t,i)=>`<button type="button" data-award="${i}" style="--c:${tc(i)}">${esc(t.name)} +${pts(i)}</button>`).join("")}<button type="button" class="none" data-award="-1">محد جاوب</button></div>`
       :`<button type="button" class="reveal" id="reveal">اكشف الإجابة</button><button type="button" class="back" id="backQ">رجوع للوحة</button>`}`;
-  if(S.room&&BUZZ.length){$("cardIn").insertAdjacentHTML("beforeend",`<div class="buzzlist"><span class="lbl">ترتيب الجرس</span>${BUZZ.map((b,i)=>`<span class="bz" style="--c:${typeof b.team==="number"?tc(b.team):"var(--muted)"}"><b>${i+1}</b>${esc(b.name)}</span>`).join("")}</div>`)}
   if(S.room)sync();
   const newVid=$("cardIn").querySelector(".media video");
   if(oldVid&&newVid&&oldVid.src===newVid.src)newVid.replaceWith(oldVid);
@@ -869,6 +868,22 @@ function hostPeek(){
   const s=JSON.stringify(v);if(s===PEEK)return;PEEK=s;const n=++PEEKN;
   (v?FNC.seal(v.key,v.a).then(box=>({k:v.k,to:v.to,s:box})):Promise.resolve(null)).then(ans=>{if(n!==PEEKN)return;try{Promise.resolve(HR.presence({role:"host",ans})).catch(()=>{})}catch(e){}}).catch(()=>{});
 }
+/* who may send which command:
+   - a leader who only manages (أدير بس) is the referee: everything
+   - the team whose turn it is: its own question (reveal, timer, back, ×2 for itself, right/wrong)
+   - the playing leader: start/new round/undo, and the question only when the turn team has nobody in the room */
+const turnTeamHere=()=>players().some(p=>p.presence.team===S.turn);
+function cmdAllowed(p,c){
+  const a=c.a,lead=LEADER&&LEADER.peer===p.peer;
+  if(lead&&(LEADER.mgr||["start","again","undo"].includes(a)))return true;
+  const turnTeam=p.presence.role==="player"&&typeof p.presence.team==="number"&&p.presence.team===S.turn;
+  const ctl=turnTeam||(lead&&!turnTeamHere());
+  if(!ctl)return false;
+  if(["open","reveal","timer","treset","back"].includes(a))return true;
+  if(a==="dbl")return lead&&!turnTeam?true:c.i===S.turn;
+  if(a==="award")return typeof c.j!=="number"&&(c.i===S.turn||c.i===-1||(lead&&!turnTeam&&(c.i===-1||Number.isInteger(c.i))));
+  return false;
+}
 function runCmd(c){
   const a=c.a;
   if(a==="start"&&S.phase==="lobby"){S.phase="board";save();render();return}
@@ -890,14 +905,11 @@ function onHostPeers(ch){
   const tvBefore=hostTV();HPEERS=ch.peers;if(hostTV()!==tvBefore)setTimeout(render,0);let changed=false;
   for(const p of HPEERS){if(CMDSEEN[p.peer]===undefined)CMDSEEN[p.peer]=(p.presence&&p.presence.cmd&&p.presence.cmd.n)||0}
   const leadCh=pickLeader();
-  if(Q&&!Q.revealed){
-    const fresh=[];
-    for(const p of HPEERS){const b=p.presence&&p.presence.buzz;
-      if(p.presence.role==="player"&&b&&b.qk===Q.id&&!BUZZ.some(x=>x.peer===p.peer))fresh.push({peer:p.peer,name:pName(p),team:p.presence.team,t:+b.t||0})}
-    if(fresh.length){fresh.sort((a,b)=>a.t-b.t);BUZZ.push(...fresh);changed=true}
-  }
-  if(LEADER){const lp=HPEERS.find(p=>p.peer===LEADER.peer),c=lp&&lp.presence.cmd;
-    if(c&&c.n!==CMDSEEN[lp.peer]){CMDSEEN[lp.peer]=c.n;if(changed&&Q){drawQ();changed=false}runCmd(c)}}
+  /* commands: the leader always; the team whose turn it is controls its own question */
+  for(const p of HPEERS){const c=p.presence&&p.presence.cmd;
+    if(!c||c.n===CMDSEEN[p.peer])continue;CMDSEEN[p.peer]=c.n;
+    if(!cmdAllowed(p,c))continue;
+    if(changed&&Q){drawQ();changed=false}runCmd(c)}
   if(leadCh&&!changed){if(S.phase==="lobby")renderLobby();sync()}
   if(!Q&&S.phase==="board"){
     for(const p of HPEERS){const pk=p.presence&&p.presence.pick;
@@ -991,6 +1003,7 @@ function rMedia(m,cat){
 }
 function rPlayersOf(i){return R.peers.filter(p=>p.presence&&p.presence.role==="player"&&p.presence.team===i).map(p=>pName(p)+(R.state&&R.state.leader&&R.state.leader.peer===p.peer?" 👑":""))}
 const rMe=()=>(R.peers.find(p=>p.sameTab)||{}).peer;
+const rTurnHere=()=>R.peers.some(p=>p.presence&&p.presence.role==="player"&&p.presence.team===(R.state&&R.state.turn));
 const rIsLead=()=>R.role==="player"&&!!(R.state&&R.state.leader&&R.state.leader.peer&&R.state.leader.peer===rMe());
 function rCmd(o){R.cmdN=Math.max(Date.now(),R.cmdN+1);if(R.room)Promise.resolve(R.room.presence({cmd:{n:R.cmdN,...o}})).catch(()=>{})}
 function rRender(){
@@ -999,7 +1012,7 @@ function rRender(){
     document.querySelectorAll("[data-role]").forEach(b=>b.classList.toggle("on",b.dataset.role===R.role));$("jNameF").hidden=R.role!=="player";return}
   join.hidden=true;live.hidden=false;
   const st=R.state,me=R.role==="player"&&!R.watch,L=!R.watch&&rIsLead(),mgr=L&&R.mgr;
-  const watchNote=R.watch&&R.role==="player"?`<div class="card watchn"><b>تقدر تتابع اللعبة بس.</b> الاتصال بالغرفة انقطع. تأكد من النت وحدّث الصفحة عشان تضغط الجرس.</div>`:"";
+  const watchNote=R.watch&&R.role==="player"?`<div class="card watchn"><b>تقدر تتابع اللعبة بس.</b> الاتصال بالغرفة انقطع. تأكد من النت وحدّث الصفحة عشان تلعب.</div>`:"";
   const head=`<div class="rhead"><span class="roomchip">الغرفة <b dir="ltr">${esc(R.code)}</b>${me?` · ${esc(R.name)}${L?" 👑":""}`:R.role==="display"?" · شاشة عرض":" · متابع"}</span><button type="button" class="ghost" id="rLeaveBtn">اطلع</button></div>`;
   if(R.missing||!st){live.innerHTML=head+`<div class="card rwait"><h2>${R.missing?"ما لقينا غرفة بهالرمز":"جاري الاتصال…"}</h2><p>${R.missing?"تأكد من الرمز، أو انتظر اللي سوّى اللعبة يفتح الغرفة.":""}</p></div>`;return}
   const teams=st.teams||[],lead=st.leader;
@@ -1009,9 +1022,9 @@ function rRender(){
   if(st.phase==="lobby"){
     const qu=me?null:qrURL(joinURL(R.code));
     const pickTeams=me&&!mgr;
-    const leadBox=L?`<div class="lead"><h3>👑 أنت قائد اللعبة</h3><p class="note-s">تبدأ اللعبة وتفتح الأسئلة وتكشف الإجابة وتعطي النقاط من جوالك.</p>
+    const leadBox=L?`<div class="lead"><h3>👑 أنت قائد اللعبة</h3><p class="note-s">تبدأ اللعبة من جوالك. بعدها كل فريق يختار سؤاله ويكشف الإجابة لما يجي دوره.</p>
       <div class="seg"><button type="button" data-lrole="play" class="${mgr?"":"on"}">ألعب مع فريق</button><button type="button" data-lrole="mgr" class="${mgr?"on":""}">أدير بس</button></div>
-      <p class="note-s">${mgr?"ما تلعب مع أحد، وتشوف الإجابة قبل الكل عشان تحكم.":(R.team===null?"اختار فريقك تحت.":"تلعب مع فريقك وتضغط الجرس مثل الباقين.")}</p>
+      <p class="note-s">${mgr?"ما تلعب مع أحد: تتحكم بكل الأسئلة وتشوف الإجابة قبل الكل عشان تحكم.":(R.team===null?"اختار فريقك تحت.":"تلعب مع فريقك، وكل فريق يتحكم بسؤاله لما يجي دوره.")}</p>
       <button type="button" class="btn" data-lc="start">ابدأ اللعب</button></div>`:"";
     body=leadBox+`<div class="card rlobby"><span class="lbl">${me?"ادخلوا بالرمز":"صوّروا الباركود بالجوال أو اكتبوا الرمز"}</span>${qu?`<img class="qr big" src="${qu}" alt="رمز QR للدخول">`:""}<div class="bigcode" dir="ltr">${esc(R.code)}</div><p class="note-s">${esc(st.gameName||"سين جيم")}</p>${L?"":`<span class="crown">${leadTxt}</span>`}</div>
       <div class="card"><div class="sec-h"><h2>${pickTeams?"اختار فريقك":"الفرق"}</h2></div><div class="lteams">${teams.map((t,i)=>`<${pickTeams?"button type=\"button\" data-team=\""+i+"\"":"div"} class="lteam ${me&&R.team===i?"mine":""}" style="--c:${tc(i)}"><b>${esc(t.name)}</b><div>${rPlayersOf(i).map(n=>`<span>${esc(n)}</span>`).join("")||"<em>ما أحد للحين</em>"}</div></${pickTeams?"button":"div"}>`).join("")}</div>
@@ -1021,37 +1034,41 @@ function rRender(){
     body=`<div class="card end"><h2>${tie?"تعادل!":`الفوز لـ ${esc(r[0].name)}`}</h2><div class="rank">${r.map(t=>`<div style="--c:${tc(t.i)}"><span>${esc(t.name)}</span><b>${t.score}</b></div>`).join("")}</div>${statsHTML(st.stats||[])}
       ${L?`<div class="actions" style="justify-content:center"><button type="button" class="btn" data-lc="again">جولة جديدة بأسئلة جديدة</button>${st.hl?`<button type="button" class="btn alt" data-lc="undo">تراجع عن آخر سؤال</button>`:""}</div>`:""}</div>`;
   }else if(st.q){
-    const q=st.q,left=rLeft(),buzzed=R.buzzQ===q.id,canBuzz=me&&!mgr&&!q.revealed&&!buzzed;
+    const q=st.q,left=rLeft();
     const pts=i=>q.p*(q.dbl===i?2:1);
     const host=R.peers.find(p=>p.presence&&p.presence.role==="host"),pk=host&&host.presence.ans;
     let pa=null;if(mgr&&!q.revealed&&pk&&pk.k===q.id&&pk.to===rMe()&&pk.s){if(R.peekDec&&R.peekDec.c===pk.s.c)pa=R.peekDec.a;else if(R.peekWant!==pk.s.c){R.peekWant=pk.s.c;FNC.open(pk.s).then(a=>{if(typeof a==="string"){R.peekDec={c:pk.s.c,a};rRender()}})}}
     const peek=pa!==null?`<div class="answer peek"><small>الإجابة (تشوفها أنت بس)</small><div class="a">${esc(pa)}</div></div>`:"";
     let ctl="";
-    if(L&&!q.revealed){
-      const dbl=st.dblOn?teams.map((t,i)=>(t.dbl||q.dbl===i)?`<button type="button" style="--c:${tc(i)}" class="${q.dbl===i?"on":""}" data-ld="${i}">${q.dbl===i?"×2 مفعّلة":"×2"} ${esc(t.name)}</button>`:"").join(""):"";
-      ctl=`<div class="lead">${peek}<button type="button" class="reveal" data-lc="reveal">اكشف الإجابة</button>
+    const turnT=teams[st.turn],myTurn=me&&!mgr&&R.team===st.turn,judge=mgr||(L&&!rTurnHere()),ctlQ=judge||myTurn;
+    if(ctlQ&&!q.revealed){
+      const dbl=st.dblOn?teams.map((t,i)=>(judge||i===st.turn)&&(t.dbl||q.dbl===i)?`<button type="button" style="--c:${tc(i)}" class="${q.dbl===i?"on":""}" data-ld="${i}">${q.dbl===i?"×2 مفعّلة":"×2"} ${esc(t.name)}</button>`:"").join(""):"";
+      ctl=`<div class="lead">${peek}${myTurn&&!judge?`<p class="note-s">دوركم! جاوبوا، وبعدين اكشفوا الإجابة.</p>`:""}<button type="button" class="reveal" data-lc="reveal">اكشف الإجابة</button>
         <div class="row">${q.timer&&q.timer.max?`<button type="button" class="ghost" data-lc="timer">${q.timer.run?"إيقاف الوقت":"كمّل الوقت"}</button><button type="button" class="ghost" data-lc="treset">الوقت من جديد</button>`:""}<button type="button" class="ghost" data-lc="back">رجوع للوحة</button></div>
         ${dbl?`<div class="dbl">${dbl}</div>`:""}</div>`;
-    }else if(L&&q.revealed){
-      const bz=(q.buzz||[]).map((b,j)=>typeof b.team==="number"?`<button type="button" data-lj="${j}" style="--c:${tc(b.team)}">${esc(b.name)} +${pts(b.team)}</button>`:"").join("");
-      ctl=`<div class="lead">${bz?`<div class="who-h">مين جاوب صح من اللي ضغطوا الجرس؟</div><div class="award">${bz}</div><div class="who-h">أو اختار الفريق</div>`:`<div class="who-h">مين جاوب صح؟</div>`}
+    }else if(judge&&q.revealed){
+      ctl=`<div class="lead"><div class="who-h">مين جاوب صح؟</div>
         <div class="award">${teams.map((t,i)=>`<button type="button" data-li="${i}" style="--c:${tc(i)}">${esc(t.name)} +${pts(i)}</button>`).join("")}<button type="button" class="none" data-li="-1">محد جاوب</button></div></div>`;
+    }else if(myTurn&&q.revealed){
+      ctl=`<div class="lead"><div class="who-h">جاوبتوا صح؟</div>
+        <div class="award"><button type="button" data-li="${st.turn}" style="--c:${tc(st.turn)}">✓ جاوبنا صح +${pts(st.turn)}</button><button type="button" class="none" data-li="-1">✗ ما عرفنا</button></div></div>`;
+    }else if(me&&turnT){
+      ctl=`<p class="rstatus">${q.revealed?`ننتظر ${esc(turnT.name)} يقولون عرفوها ولا لا…`:`الدور على ${esc(turnT.name)} 🎯`}</p>`;
     }
     body=scores+`<div class="qcard rq"><div class="q-top"><div class="q-meta">${q.icon?`<img class="q-ic" src="${blob(q.icon)}" alt="">`:""}<span class="q-cat">${esc(q.cat)}</span><span class="q-pts">${q.p}${typeof q.dbl==="number"?" ×2":""}</span></div>${teams[st.turn]?`<span class="q-turn" style="--c:${tc(st.turn)}">الدور على: ${esc(teams[st.turn].name)}</span>`:""}</div>
       <p class="q-text">${esc(q.text)}</p>${rMedia(q.m,q.cat)}${q.h?`<p class="q-hint">تلميح: ${esc(q.h)}</p>`:""}
       ${q.timer&&q.timer.max?`<div class="timer-row"><div class="ring ${left<=10?"low":""}" id="rRing"><svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="30" fill="none" stroke="var(--soft)" stroke-width="7"/><circle id="rArc" cx="35" cy="35" r="30" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="${(188.5*(1-left/(q.timer.max||1))).toFixed(1)}"/></svg><span class="num" id="rNum">${left}</span></div></div>`:""}
-      ${me&&!mgr&&!q.revealed?`<button type="button" class="buzzer" id="buzzBtn" ${canBuzz?"":"disabled"}>${buzzed?"ضغطت الجرس ✓":"🔔 الجرس"}</button>`:""}
-      ${q.buzz&&q.buzz.length?`<div class="buzzlist"><span class="lbl">ترتيب الجرس</span>${q.buzz.map((b,i)=>`<span class="bz" style="--c:${typeof b.team==="number"?tc(b.team):"var(--muted)"}"><b>${i+1}</b>${esc(b.name)}</span>`).join("")}</div>`:""}
       ${q.revealed?`<div class="answer"><small>الإجابة</small><div class="a">${esc(q.answer||"")}</div>${q.am?upMedia(q.am):""}</div>`:""}${ctl}</div>`;
   }else{
-    const myTurn=me&&R.team===st.turn,canOpen=L||myTurn;
-    const msg=L?(myTurn?"دور فريقك! وأنت القائد: افتح أي سؤال":`أنت القائد: افتح سؤال · الدور على ${esc(teams[st.turn]?teams[st.turn].name:"")}`):myTurn?"دور فريقكم! اختاروا سؤال":(teams[st.turn]?`الدور على ${esc(teams[st.turn].name)}`:"");
+    const myTurn=me&&!mgr&&R.team===st.turn,judge=mgr||(L&&!rTurnHere()),canOpen=judge||myTurn;
+    const tn=teams[st.turn]?esc(teams[st.turn].name):"";
+    const msg=myTurn?"دور فريقكم! اختاروا سؤال":judge?(mgr?`أنت الحَكَم: افتح سؤال · الدور على ${tn}`:`فريق ${tn} ما فيه أحد بالغرفة، فافتح أنت السؤال`):(tn?`الدور على ${tn}`:"");
     body=scores+`<p class="rstatus ${canOpen?"go":""}">${msg}</p>${L&&st.hl?`<div class="actions" style="justify-content:center;margin-bottom:12px"><button type="button" class="ghost" data-lc="undo">تراجع عن آخر سؤال</button></div>`:""}
       <div class="board">${(st.cats||[]).map((c,ci)=>`<div class="col"><span class="cimg">${coverHTML(c)}</span><h3>${esc(c.name)}</h3><div class="cells">${c.cells.map((x,qi)=>{const k=ci+"-"+qi;
         if(!x.ok)return `<button type="button" class="cell" disabled>–</button>`;
         const who=x.u!==null&&x.u>=0?`<i class="who" style="background:${tc(x.u)}"></i>`:"";
         if(x.u!==null)return `<button type="button" class="cell" data-p="${x.p}" disabled>${who}${x.p}</button>`;
-        return L?`<button type="button" class="cell" data-p="${x.p}" data-lk="${k}">${x.p}</button>`:myTurn?`<button type="button" class="cell" data-p="${x.p}" data-rk="${k}">${x.p}</button>`:`<span class="cell ro" data-p="${x.p}">${x.p}</span>`}).join("")}</div></div>`).join("")}</div>`;
+        return judge?`<button type="button" class="cell" data-p="${x.p}" data-lk="${k}">${x.p}</button>`:myTurn?`<button type="button" class="cell" data-p="${x.p}" data-rk="${k}">${x.p}</button>`:`<span class="cell ro" data-p="${x.p}">${x.p}</span>`}).join("")}</div></div>`).join("")}</div>`;
   }
   let headX=head;if(!me&&st.phase!=="lobby"&&st.phase!=="end"){const qu=qrURL(joinURL(R.code));headX=head.replace('<button type="button" class="ghost" id="rLeaveBtn">',`<span class="tvqr">${qu?`<img src="${qu}" alt="">`:""}<span>ادخلوا بالرمز<b dir="ltr">${esc(R.code)}</b></span></span><button type="button" class="ghost" id="rLeaveBtn">`)}
   live.innerHTML=headX+watchNote+body+`<div class="toast" id="rToast" hidden></div>`;
@@ -1087,7 +1104,6 @@ $("rLive").onclick=e=>{
   if(b.dataset.ld!==undefined&&cq){rCmd({a:"dbl",qk:cq.id,i:+b.dataset.ld});return}
   if(b.dataset.lj!==undefined&&cq){rCmd({a:"award",qk:cq.id,j:+b.dataset.lj});return}
   if(b.dataset.li!==undefined&&cq){rCmd({a:"award",qk:cq.id,i:+b.dataset.li});return}
-  if(b.id==="buzzBtn"&&R.state&&R.state.q){R.buzzQ=R.state.q.id;R.room&&R.room.presence({buzz:{qk:R.state.q.id,t:Date.now()}}).catch(()=>{});rRender();return}
   if(b.dataset.rk){R.pickN=Date.now();R.room&&R.room.presence({pick:{k:b.dataset.rk,n:R.pickN}}).catch(()=>{});b.textContent="…";return}
 };
 $("tabPlay").onclick=()=>{VIEW="play";render()};
