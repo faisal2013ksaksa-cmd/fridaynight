@@ -282,6 +282,7 @@
     if (!me) {
       const ok = (S.correct || {})[ME.pid], inp = document.getElementById("fGuess"), grow = inp && inp.parentElement;
       if (grow) grow.hidden = !!ok;
+      if (ok && self.FA) FA.once("dr-ok-" + S.tid, () => FA.right("عرفتها! +" + ok));
       const gm = document.getElementById("gmsg"); if (gm) gm.innerHTML = ok ? `<span class="big-msg">عرفتها! 🎉 <span class="word">+${ok}</span></span>` : "";
     }
     document.getElementById("side").innerHTML = `${chatHTML()}${playersHTML()}${isHost() ? `<button type="button" class="btn alt mt" data-act="hreveal">خلّص الدور</button>` : ""}`;
@@ -324,6 +325,7 @@
     if (S.phase === "reveal") {
       const d = Object.assign({}, S.correct || {}); d[S.drawer] = (d[S.drawer] || 0) + (S.dpts || 0);
       const n = Object.keys(S.correct || {}).length;
+      if (self.FA) FA.once("dr-rv-" + S.tid, () => { FA.play("reveal", [60, 60]); FA.slam("الكلمة كانت: " + (S.word || ""), n ? `عرفها ${n} 🎉` : "محد عرفها 😅", n ? "#ff7a1a" : "#7c3aed"); });
       app.innerHTML = `<div class="card center">${turnHead()}<p class="note">الكلمة كانت</p><p class="big-msg"><span class="word">${esc(S.word || "")}</span></p>
         <p class="note">${n ? `عرفها ${n} ${n > 1 ? "لاعبين" : "لاعب"} 🎉` : "محد عرفها 😅"}</p>
         <canvas id="cvr" class="board" aria-label="الرسمة"></canvas></div>
@@ -332,6 +334,7 @@
       return;
     }
     if (S.phase === "end") {
+      if (self.FA) FA.once("dr-end-" + ME.code + "-" + S.game, () => { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); if (ids.length) FA.winner(nameOf(ids[0]), ids.map(id => [nameOf(id), S.scores[id] || 0])); });
       const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0));
       const medal = ["🥇", "🥈", "🥉"];
       app.innerHTML = `<div class="card"><h2 class="center">النتيجة النهائية 🏆</h2><div class="podium mt">${ids.map((id, i) => `<div><span>${medal[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div>

@@ -1,0 +1,86 @@
+/* Friday Night — «ملوّن ومرح» look for the game pages (برا السالفة، صدق ولا كذب، مين فينا، ارسم وخمّن، شاشة العرض).
+   Loaded after each page's own styles: it only restyles, it never changes how a game works.
+   Each page sets its colour with  <body style="--game:#…">. */
+:root{--bg:#fff6e9;--surface:#fff;--soft:#f6efff;--line:#2b1745;--ink:#2b1745;--muted:#6b5a80;--shadow:none;--game:#7c3aed}
+body{background:var(--bg)}
+.fn-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 12% 8%,#ffe1f0 0,transparent 32%),radial-gradient(circle at 92% 28%,#e3dcff 0,transparent 32%),radial-gradient(circle at 28% 92%,#d8f7ea 0,transparent 32%)}
+.fn-bg span{position:absolute;font-size:30px;opacity:.55;animation:fnbob 7s ease-in-out infinite}
+@keyframes fnbob{50%{transform:translateY(-20px) rotate(12deg)}}
+.wrap{position:relative;z-index:1}
+body.catbg .fn-bg{display:none}
+
+/* header + games bar */
+.brand .logo{background:#fff;border:3px solid var(--ink);box-shadow:3px 3px 0 var(--game);overflow:hidden;padding:2px}
+.brand .logo img{width:100%;height:100%;object-fit:contain;display:block}
+.gamesbar a{border:2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);background:#fff}
+.gamesbar a.on{background:var(--game);color:#fff}
+.gamesbar a.site{border:0;box-shadow:none;background:none}
+.chip{background:#fff;border:2px solid var(--ink);color:var(--ink)}
+.chip b{color:var(--game)}
+
+/* cards & tiles */
+.card{border:3px solid var(--ink);box-shadow:6px 6px 0 var(--game);border-radius:24px}
+.mode{border:3px solid var(--ink);box-shadow:5px 5px 0 var(--game);transition:transform .15s,box-shadow .15s}
+.mode:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--game)}
+.mode:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--game)}
+.mode .ic{background:#fff;border:2px solid var(--ink);transition:transform .3s}
+.mode:hover .ic{transform:rotate(-10deg) scale(1.1)}
+.hero h1{text-shadow:3px 3px 0 color-mix(in srgb,var(--game) 35%,transparent)}
+.code{color:var(--game);text-shadow:3px 3px 0 var(--ink)}
+
+/* buttons */
+.btn{border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);background:var(--game);transition:transform .1s,box-shadow .1s}
+.btn:active:not(:disabled){transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.btn.alt{background:#fff;color:var(--ink)}
+.ghost{border:2px solid var(--ink)!important;box-shadow:2px 2px 0 var(--ink);color:var(--ink);background:#fff}
+.ghost:active{transform:translate(2px,2px);box-shadow:none}
+.seg button,.stepper button{border:2px solid var(--ink);background:#fff;color:var(--ink)}
+.seg button.on{background:var(--game);color:#fff}
+.vote button,.opts button,.catv button,.sizes button{border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);background:#fff;transition:transform .1s,box-shadow .1s}
+.vote button:active:not(:disabled),.opts button:active:not(:disabled),.catv button:active{transform:translate(3px,3px);box-shadow:none}
+.vote button.on,.opts button.on,.catv button.on,.sizes button.on{background:var(--game);color:#fff}
+.opts button.ok{background:var(--good);color:#fff}.opts button.bad{background:var(--danger);color:#fff}
+
+/* inputs, lists, bars */
+.inp{background:#fff;border:2px solid var(--ink)}
+.inp:focus{border-color:var(--game)}
+.plist li{background:#fff;border:2px solid var(--ink)}
+.plist li.me{background:var(--game);color:#fff}
+.pairs li,.answers li,.chat li,.titles li{border:2px solid var(--ink);background:#fff}
+.answers li.truth{background:#e6f8ef;outline:0;box-shadow:3px 3px 0 var(--good)}
+.tbar{border:2px solid var(--ink);height:14px;background:#fff}
+.tbar i{background:var(--game)}
+.bar .tr{border:2px solid var(--ink);height:18px;background:#fff}
+.bar .tr i{background:var(--game)}
+.podium div{border:2px solid var(--ink);background:#fff}
+.podium div:first-child{background:var(--gold);box-shadow:4px 4px 0 var(--ink)}
+.role{border:3px solid var(--ink);box-shadow:6px 6px 0 var(--game)}
+.board{box-shadow:inset 0 0 0 3px var(--ink)}
+.board.mine{box-shadow:inset 0 0 0 4px var(--game)}
+.hint i{border-bottom-color:var(--game)}
+
+/* game moments (fnanim.js) */
+.fn-confetti{position:fixed;inset:0;pointer-events:none;z-index:95}
+.fn-slam{position:fixed;left:50%;top:38%;z-index:90;transform:translate(-50%,-50%);width:min(92vw,520px);text-align:center;background:var(--slam,var(--pink));color:#fff;border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink);border-radius:22px;padding:18px;font-family:var(--f-display);font-weight:800;font-size:clamp(22px,6vw,34px);animation:fnslam .55s cubic-bezier(.2,1.8,.4,1) both,fnfade .4s 2.3s forwards;pointer-events:none}
+.fn-slam small{display:block;font-family:var(--f-body);font-size:15px;opacity:.9}
+@keyframes fnslam{from{transform:translate(-50%,-50%) scale(2.4) rotate(-8deg);opacity:0}}
+@keyframes fnfade{to{opacity:0;transform:translate(-50%,-60%) scale(.9)}}
+.fn-shake{animation:fnshake .45s}
+@keyframes fnshake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.fn-win{position:fixed;inset:0;z-index:92;background:rgba(43,23,69,.55);display:grid;place-items:center;padding:16px;animation:fnfadein .3s}
+@keyframes fnfadein{from{opacity:0}}
+.fn-win .box{background:#fff;border:4px solid var(--ink);box-shadow:8px 8px 0 var(--gold);border-radius:28px;padding:24px;text-align:center;width:min(380px,100%);animation:fnpop .5s cubic-bezier(.2,1.6,.4,1)}
+.fn-win .trophy{font-size:84px;line-height:1;animation:fndrop .8s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes fndrop{from{transform:translateY(-140px) rotate(-30deg);opacity:0}}
+@keyframes fnpop{from{transform:scale(.4);opacity:0}}
+.fn-win p{margin:6px 0 0;font-weight:800;color:var(--muted)}
+.fn-win h2{margin:0;font-family:var(--f-display);font-size:clamp(28px,8vw,40px);color:var(--game)}
+.fn-win .rows{display:grid;gap:8px;margin:14px 0}
+.fn-win .rows div{display:flex;justify-content:space-between;border:2px solid var(--ink);border-radius:14px;padding:8px 12px;font-weight:800;background:var(--bg)}
+.fn-win .rows div:first-child{background:#ffe08a}
+.fn-win .rows b{font-family:var(--f-display);font-size:22px}
+.fn-win button{background:var(--game);color:#fff;border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:14px;padding:12px 22px;font-weight:800;font-size:17px;cursor:pointer}
+.fn-bump{animation:fnbump .5s ease}
+@keyframes fnbump{40%{transform:scale(1.35)}}
+@media (prefers-reduced-motion:reduce){.fn-bg span,.fn-slam,.fn-win .box,.fn-win .trophy,.mode,.btn{animation:none!important;transition:none!important}}
+.fx-mute{width:40px!important;height:40px!important;font-size:17px!important;opacity:.9}

@@ -27,6 +27,8 @@
 <script src="firebase-config.js"></script>
 <script src="fncrypto.js"></script>
 <script src="fnwake.js"></script>
+<script src="fnfx.js"></script>
+<script src="fnanim.js"></script>
 <script src="shim.js"></script>
 <style>
 /* Layout: a bright party-game board — lavender ground, white rounded cards; setup is one long page (name, teams, category cards with photos, settings) and the board is a grid of category columns, each with its cover and six cells */
@@ -325,11 +327,12 @@ body.tv .media img.up{max-height:60vh}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
+<link rel="stylesheet" href="fntheme-sj.css">
 
 <div class="wrap" dir="rtl" lang="ar">
   <nav class="gamesbar" aria-label="الألعاب"><a class="site" href="./" aria-label="الصفحة الرئيسية"><img src="favicon-64.png" alt="" width="22" height="22">Friday Night</a><a href="seenjeem/" class="on" aria-current="page">🎬 سين جيم</a><a href="outside/">🤫 برا السالفة</a><a href="sedq/">🤥 صدق ولا كذب</a><a href="mf/">👀 مين فينا؟</a><a href="draw/">🎨 ارسم وخمّن</a><a href="tv/">📺 شاشة العرض</a></nav>
   <header>
-    <div class="brand"><span class="logo">س ج</span><span>سين جيم <small>مسلسلات</small></span></div>
+    <div class="brand"><span class="logo"><img src="icons/seenjeem.png" alt=""></span><span>سين جيم <small>مسلسلات</small></span></div>
     <nav class="tabs" aria-label="الصفحات">
       <button type="button" id="tabPlay">اللعب</button>
       <button type="button" id="tabJoin">ادخل غرفة</button>
@@ -550,6 +553,9 @@ function render(){
   if(VIEW==="edit")renderEditor();
   if(VIEW==="need")renderNeeds();
   applyHostView();
+  /* motion (fnanim.js): scores count up, winner screen at the end */
+  if(self.FA){if(play&&S.phase==="board")FA.numbers("#game .score .pt");
+    if(play&&S.phase==="end")FA.once("sj-end-"+S.hist.length+"-"+S.teams.map(t=>t.score).join(","),()=>{const r=S.teams.slice().sort((a,b)=>b.score-a.score);FA.winner(r.length>1&&r[0].score===r[1].score?"تعادل!":r[0].name,r.map(t=>[t.name,t.score]),r.length>1&&r[0].score===r[1].score?"النتيجة":"الفوز لـ")})}
 }
 /* TV view only while someone can drive the game from a phone; with no players this device keeps full control */
 const hostTV=()=>!!(S.room&&S.room.view!=="ctl"&&HPEERS.some(p=>p.presence&&p.presence.role==="player"));
@@ -679,6 +685,7 @@ function award(i,player=null){
   S.hist.push({k:Q.k,team:i,gained,turn:S.turn,dbl:Q.dbl,cat:Q.c.name,player,first:BUZZ[0]?BUZZ[0].name:null});
   if(i>=0)S.teams[i].score+=gained;
   S.flash={seq:Date.now(),text:i>=0?`${S.teams[i].name} +${gained}`:"محد جاوب"};
+  if(self.FA){if(i>=0)FA.right(`${S.teams[i].name} +${gained}`);else FA.wrong("محد جاوب 😅")}
   if(Q.dbl!==null)S.teams[Q.dbl].dbl=false;
   S.used[Q.k]=i;S.turn=(S.turn+1)%S.teams.length;closeQ();
   if(Object.keys(S.used).length>=totalQ())S.phase="end";
@@ -1069,7 +1076,9 @@ function rRender(){
   }
   let headX=head;if(!me&&st.phase!=="lobby"&&st.phase!=="end"){const qu=qrURL(joinURL(R.code));headX=head.replace('<button type="button" class="ghost" id="rLeaveBtn">',`<span class="tvqr">${qu?`<img src="${qu}" alt="">`:""}<span>ادخلوا بالرمز<b dir="ltr">${esc(R.code)}</b></span></span><button type="button" class="ghost" id="rLeaveBtn">`)}
   live.innerHTML=headX+watchNote+body+`<div class="toast" id="rToast" hidden></div>`;
-  const f=st.flash;if(f&&f.seq!==R.lastSeq){const first=R.lastSeq===null;R.lastSeq=f.seq;if(!first){const t=$("rToast");t.hidden=false;t.textContent=f.text;clearTimeout(R.toastT);R.toastT=setTimeout(()=>{const x=$("rToast");if(x)x.hidden=true},2600)}}
+  if(self.FA){FA.numbers("#rLive .score .pt");
+    if(st.phase==="end")FA.once("sjr-end-"+R.code+"-"+st.hl,()=>{const r=teams.slice().sort((a,b)=>b.score-a.score);const tie=r.length>1&&r[0].score===r[1].score;FA.winner(tie?"تعادل!":r[0].name,r.map(t=>[t.name,t.score]),tie?"النتيجة":"الفوز لـ")})}
+  const f=st.flash;if(f&&f.seq!==R.lastSeq){const first=R.lastSeq===null;R.lastSeq=f.seq;if(!first&&self.FA){if(/\+\d/.test(f.text||"")){FA.play("right",[30,40,30]);FA.confetti()}else if(f.text==="محد جاوب")FA.wrong()}if(!first){const t=$("rToast");t.hidden=false;t.textContent=f.text;clearTimeout(R.toastT);R.toastT=setTimeout(()=>{const x=$("rToast");if(x)x.hidden=true},2600)}}
 }
 setInterval(()=>{if(!R.joined||!R.state||!R.state.q)return;const n=$("rNum");if(!n)return;const left=rLeft(),mx=R.state.q.timer.max||1;n.textContent=left;$("rArc").setAttribute("stroke-dashoffset",(188.5*(1-left/mx)).toFixed(1));$("rRing").classList.toggle("low",left<=10)},250);
 

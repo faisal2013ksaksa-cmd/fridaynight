@@ -281,6 +281,7 @@
         return `<li class="${own === "truth" ? "truth" : ""}"><div><b>${esc(o.text)}</b><small>${esc(who)}</small></div><span>${pickers.length ? pickers.map(p => esc(nameOf(p))).join("، ") : "ما أحد اختارها"}</span></li>`;
       }).join("");
       const d = r.deltas[ME.pid] || 0, myPick = r.picks[ME.pid];
+      if (self.FA) FA.once("sq-rv-" + S.q.id, () => { if (myPick === r.truth) FA.right("عرفت الصح! +2"); else if (d > 0) FA.right("خدعتهم 😏 +" + d); else if (myPick) FA.wrong("انخدعت 😅"); });
       app.innerHTML = `<div class="card">${head}${img}${qtext}
         <p class="big-msg">${myPick === r.truth ? `عرفت الصح! 🎉` : myPick ? "انخدعت 😅" : "ما اخترت ⏱️"}${d ? ` <span class="word">+${d}</span>` : ""}</p>
         <ul class="answers mt">${rows}</ul></div>
@@ -288,6 +289,7 @@
       return;
     }
     if (S.phase === "end") {
+      if (self.FA) FA.once("sq-end-" + ME.code + "-" + S.game, () => { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); if (ids.length) FA.winner(nameOf(ids[0]), ids.map(id => [nameOf(id), S.scores[id] || 0])); });
       const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0));
       const medal = ["🥇", "🥈", "🥉"];
       app.innerHTML = `<div class="card"><h2 class="center">النتيجة النهائية 🏆</h2><div class="podium mt">${ids.map((id, i) => `<div><span>${medal[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div>

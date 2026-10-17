@@ -209,6 +209,7 @@
     if (S.phase === "reveal") {
       const r = S.reveal || { counts: {}, winners: [], right: [], deltas: {} };
       const amWin = r.winners.includes(ME.pid), amRight = r.right.includes(ME.pid);
+      if (self.FA) FA.once("mf-rv-" + S.q.id, () => { if (r.winners.length) { FA.play("party", [40, 40, 40]); FA.confetti(); FA.slam("👑 " + r.winners.map(nameOf).join(" و"), amRight ? "توقعت مع الأغلبية +1" : null, "#ffb21e"); } else if (r.tie) FA.slam("تعادل كامل 🤝", null, "#7c3aed"); });
       app.innerHTML = `<div class="card">${head}${qtext}
         ${r.winners.length ? `<p class="big-msg">👑 ${esc(r.winners.map(nameOf).join(" و"))}</p><p class="note center">${amWin ? "هذا أنت 😂" : ""}${amRight ? " توقعت مع الأغلبية <b class=\"word\">+1</b>" : ""}</p>` : r.tie ? `<p class="big-msg">تعادل كامل 🤝</p><p class="note center">ما أحد ياخذ اللقب ولا نقاط هالمرة</p>` : `<p class="big-msg">ما أحد صوّت ⏱️</p>`}
         ${bars(order, r.counts, r.winners)}</div>
@@ -216,6 +217,7 @@
       return;
     }
     if (S.phase === "end") {
+      if (self.FA) FA.once("mf-end-" + ME.code + "-" + S.game, () => { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); if (ids.length) FA.winner(nameOf(ids[0]), ids.map(id => [nameOf(id), S.scores[id] || 0])); });
       const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0));
       const medal = ["🥇", "🥈", "🥉"];
       app.innerHTML = `<div class="card"><h2 class="center">النتيجة النهائية 🏆</h2><p class="note center">أكثر واحد توقّع مع الأغلبية</p><div class="podium mt">${ids.map((id, i) => `<div><span>${medal[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div>

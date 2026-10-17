@@ -109,8 +109,21 @@
     const main = game === "sq" ? renderSQ() : game === "mf" ? renderMF() : game === "draw" ? renderDraw() : renderBS();
     app.innerHTML = `<div class="tvgrid"><div>${main}</div>${sideHTML()}</div>`;
     frame = key; board = null;
+    moments();
     const cv = document.getElementById("tvcv");
     if (cv && self.DrawBoard) { board = DrawBoard.Board(cv); board.set(DrawBoard.parse(STROKES, dec)); }
+  }
+  // big moments on the TV (fnanim.js), once each
+  function moments() {
+    if (!self.FA || !S) return;
+    const k = game + "-" + code + "-", names = ids => ids.map(nameOf).join(" و");
+    const top = () => { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); if (ids.length) FA.winner(nameOf(ids[0]), ids.map(id => [nameOf(id), S.scores[id] || 0])); };
+    if (game === "bs" && S.phase === "reveal" && S.reveal) FA.once(k + "rv" + S.round, () => FA.reveal((S.catInfo && S.catInfo.mode === "spy" ? "الجاسوس: " : "اللي برا السالفة: ") + names(S.reveal.outs || []), null, "#f03e7a"));
+    if (game === "bs" && S.phase === "results") FA.once(k + "res" + S.round, () => { FA.play("party"); FA.confetti(); });
+    if (game === "sq" && S.phase === "reveal" && S.reveal && S.q) FA.once(k + "rv" + S.q.id, () => { const t = (S.opts || []).find(o => o.id === S.reveal.truth); FA.play("reveal", 0); FA.slam("الجواب الصحيح: " + (t ? t.text : ""), null, "#12a874"); });
+    if (game === "mf" && S.phase === "reveal" && S.reveal && S.q) FA.once(k + "rv" + S.q.id, () => { if (S.reveal.winners && S.reveal.winners.length) { FA.play("party"); FA.confetti(); FA.slam("👑 " + names(S.reveal.winners), null, "#ffb21e"); } });
+    if (game === "draw" && S.phase === "reveal") FA.once(k + "rv" + S.tid, () => { FA.play("reveal"); FA.slam("الكلمة كانت: " + (S.word || ""), null, "#ff7a1a"); });
+    if (S.phase === "end" && game !== "bs") FA.once(k + "end" + (S.game || ""), top);
   }
   function watch(g, c) {
     game = g; code = c; S = null; P = {};

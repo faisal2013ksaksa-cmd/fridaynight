@@ -92,6 +92,9 @@
     const max = Math.max(1, ...order.map(id => counts[id] || 0));
     return `<div class="bars">${order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).map(id => `<div class="bar ${outs.includes(id) ? "out" : ""}"><span>${esc(nameOf(id))}</span><span class="tr"><i style="width:${((counts[id] || 0) / max) * 100}%"></i></span><span>${counts[id] || 0}</span></div>`).join("")}</div>`;
   }
+  // game moments (fnanim.js): played once per round
+  const fa = (key, fn) => { if (self.FA) FA.once(key, fn); };
+  const rk = R => (R._k = R._k || Math.random().toString(36).slice(2));
   function resultSummary(R, res, nameOf) {
     const lines = R.outs.map(o => {
       const n = esc(nameOf(o));
@@ -162,6 +165,7 @@
       app.innerHTML = `<div class="card"><h2>النتيجة 🗳️</h2>${barsHTML(R.order, pName, t.counts, [])}
         <p class="big-msg mt">${OUTN(R.cat)}: ${R.outs.map(o => esc(pName(o))).join(" و")} ${isSpy(R.cat) ? "🕵️" : "🤫"}</p>
         <button type="button" class="btn pink" data-act="pguess">فرصة التخمين</button></div>`;
+      fa("bsp-rv-" + rk(R), () => FA.reveal(OUTN(R.cat) + ": " + R.outs.map(pName).join(" و") + (isSpy(R.cat) ? " 🕵️" : " 🤫"), null, "#f03e7a"));
       return;
     }
     if (PS.step === "guess") {
@@ -176,6 +180,7 @@
       app.innerHTML = `<div class="card"><h2>نتيجة الجولة 🏆</h2>${resultSummary(R, PS.res, pName)}${barsHTML(R.order, pName, PS.res.tally.counts, R.outs)}</div>
         <div class="card"><h2>النقاط</h2>${scoreTable(R.order, pName, PS.scores, PS.res.deltas)}
         <button type="button" class="btn mt" data-act="pnext">جولة جديدة</button><button type="button" class="btn alt mt" data-act="psetup">غيّر اللاعبين أو القسم</button></div>`;
+      fa("bsp-res-" + rk(R), () => { FA.play("party"); FA.confetti(); });
     }
   }
   function passStart() {
@@ -405,6 +410,7 @@
         <div class="card">${amOut ? (g[ME.pid] ? `<p class="big-msg">اخترت: ${esc(g[ME.pid])}</p><p class="note center">ننتظر النتيجة…</p>` : `<h2>فرصتك! وش ${W(S.catInfo)} الصحيح${isSpy(S.catInfo) ? "" : "ة"}؟</h2>${opts ? `<div class="opts">${opts.map(w => `<button type="button" data-guess="${esc(w)}" class="${myPick === w ? "on" : ""}">${esc(w)}</button>`).join("")}</div><button type="button" class="btn mt" data-act="doguess" ${myPick ? "" : "disabled"}>تأكيد</button>` : `<p class="note">لحظة…</p>`}`)
           : `<p class="big-msg">${rv.outs.map(o => esc(nameOf(o))).join(" و")} يخمّن ${W(S.catInfo)} الحين… 🤔</p>`}
         ${isHost() ? `<button type="button" class="btn alt mt" data-act="hfinish">اعرض النقاط الحين</button>` : ""}</div>`;
+      fa("bs-rv-" + ME.code + "-" + S.round, () => FA.reveal(OUTN(S.catInfo) + ": " + rv.outs.map(nameOf).join(" و") + (isSpy(S.catInfo) ? " 🕵️" : " 🤫"), amOut ? "انكشفت! 😅" : null, "#f03e7a"));
       return;
     }
     if (S.phase === "results") {
@@ -412,6 +418,7 @@
       const R = { outs: r.outs, word: r.word, spyWord: r.spyWord, cat: S.catInfo };
       app.innerHTML = `<div class="card"><h2>نتيجة الجولة ${S.round} 🏆</h2>${resultSummary(R, r, nameOf)}${barsHTML(order, nameOf, r.counts, r.outs)}</div>
         <div class="card"><h2>النقاط</h2>${scoreTable(Object.keys(S.scores || {}).concat(order.filter(id => !(S.scores || {})[id])).filter((x, i, a) => a.indexOf(x) === i), nameOf, S.scores || {}, r.deltas)}
+        ${(fa("bs-res-" + ME.code + "-" + S.round, () => { const d = (r.deltas || {})[ME.pid] || 0; if (d > 0) FA.right("+" + d + " 🎉"); else { FA.play("party"); FA.confetti(); } }), "")}
         ${isHost() ? `<p class="err" id="herr"></p><button type="button" class="btn mt" data-act="hnext">جولة جديدة</button><button type="button" class="btn alt mt" data-act="hlobby">غيّر القسم أو انتظر لاعبين</button>` : `<p class="note center mt">ننتظر 👑 ${esc(nameOf(S.host))} يبدأ جولة جديدة…</p>`}</div>${leave}`;
     }
   }
