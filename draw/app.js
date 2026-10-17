@@ -35,7 +35,9 @@
 
   /* ---------------- engine ---------------- */
   const guessPts = left => 2 + Math.ceil(8 * Math.max(0, left) / DRAW_S); // 3…10
-  const DRAWER_PTS = 2;                                                   // per right guess
+  // the drawer gets the fastest guesser's points + 1 for every other right guess,
+  // so drawing well always pays more than it gives the others
+  const drawerPts = pts => { const v = Object.values(pts); return v.length ? Math.max(...v) + (v.length - 1) : 0; };
   function hintFor(word, order, shown) { // "" = hidden letter, " " = space
     const ch = Array.from(word), out = ch.map(c => c === " " ? " " : "");
     order.slice(0, shown).forEach(i => { out[i] = ch[i]; });
@@ -201,7 +203,7 @@
     correct = correct || S.correct || {};
     const scores = Object.assign({}, S.scores), n = Object.keys(correct).length;
     Object.entries(correct).forEach(([id, p]) => scores[id] = (scores[id] || 0) + p);
-    const dpts = n * DRAWER_PTS; scores[S.drawer] = (scores[S.drawer] || 0) + dpts;
+    const dpts = drawerPts(correct); scores[S.drawer] = (scores[S.drawer] || 0) + dpts;
     const word = HID && HID.word;
     await writeState({ phase: "reveal", t0: Date.now(), word, correct, scores, dpts, hint: null, dword: null, used: (S.used || []).concat(word ? [word] : []) });
   }
@@ -380,7 +382,7 @@
         <button type="button" class="mode" data-act="ocreate"><span class="ic">📡</span><span><b>افتح غرفة</b><span>كل واحد يلعب من جواله (لاعبين وأكثر)</span></span></button>
         <button type="button" class="mode" data-act="ojoin"><span class="ic">🔑</span><span><b>ادخل غرفة</b><span>عندك رمز من صاحبك</span></span></button>
       </div>
-      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>كل دور واحد يرسم: يختار كلمة من 3، ويرسمها بإصبعه (بدون كتابة حروف!).</li><li>الباقين يكتبون تخميناتهم. التخمين الغلط يطلع للكل، والصحيح محد يشوفه.</li><li>كل ما عرفت أسرع، أخذت نقاط أكثر (3 إلى 10)، والرسّام ياخذ <b>+2</b> عن كل واحد عرفها.</li><li>مع الوقت تنكشف بعض حروف الكلمة كمساعدة.</li></ul>
+      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>كل دور واحد يرسم: يختار كلمة من 3، ويرسمها بإصبعه (بدون كتابة حروف!).</li><li>الباقين يكتبون تخميناتهم. التخمين الغلط يطلع للكل، والصحيح محد يشوفه.</li><li>كل ما عرفت أسرع، أخذت نقاط أكثر (3 إلى 10)، والرسّام ياخذ نفس نقاط أسرع واحد عرفها، وفوقها <b>+1</b> عن كل واحد ثاني عرفها.</li><li>مع الوقت تنكشف بعض حروف الكلمة كمساعدة.</li></ul>
       <p class="note">📺 أحلى شي تعرضونها على التلفزيون من صفحة «شاشة العرض».</p></div>`;
   }
   function renderForm(kind, code, msg) {
@@ -446,5 +448,5 @@
     } else if (ME && ME.code && db) joinRoom(ME.code, ME.name).catch(() => { ME.code = null; LS.set(MKEY, ME); goHome(); });
     else goHome();
   }).catch(() => { app.innerHTML = `<div class="card"><p class="big-msg">ما قدرت أحمّل الكلمات. حدّث الصفحة.</p></div>`; });
-  self.DR = { judge, norm, hintFor, guessPts };
+  self.DR = { judge, norm, hintFor, guessPts, drawerPts };
 })();
