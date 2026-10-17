@@ -26,6 +26,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="fncrypto.js"></script>
+<script src="fnwake.js"></script>
 <script src="shim.js"></script>
 <style>
 /* Layout: a bright party-game board — lavender ground, white rounded cards; setup is one long page (name, teams, category cards with photos, settings) and the board is a grid of category columns, each with its cover and six cells */
@@ -831,6 +832,8 @@ function pub(){
       timer:{left:T.left,run:T.run,max:T.max||S.time},dbl:Q.dbl,buzz:BUZZ.map(b=>({name:b.name,team:b.team}))}:null,
     flash:S.flash||null,stats:S.phase==="end"?statsList():null};
 }
+/* the device hosting an online room keeps its screen awake (fnwake.js) */
+setInterval(()=>{try{self.FNW&&FNW.hold(!!(S&&S.room&&!S.room.closed))}catch(e){}},1000);
 let syncing=false,syncAgain=false;
 async function sync(){
   if(!S.room||!DB||S.room.closed)return;

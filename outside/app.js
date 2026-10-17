@@ -509,6 +509,9 @@
   app.addEventListener("input", e => { const i = e.target; if (view === "pass" && i.dataset.name !== undefined) PS.names[+i.dataset.name] = i.value; });
 
   /* ---------------- boot ---------------- */
+  // keep the host's screen awake while a room is open
+  setInterval(() => { if (self.FNW) FNW.hold(view === "room" && isHost()); }, 1000);
+  if (self.FNW) FNW.onVisible(() => hostTick());
   fetch("words.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
     CATS = d.categories.filter(c => c.words && c.words.length >= 6);
     const h = (location.hash || "").replace("#", "").toUpperCase();

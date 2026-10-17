@@ -27,7 +27,7 @@
   const nameOf = id => (P[id] && P[id].name) || (S && S.names && S.names[id]) || "؟";
   const plist = (ids, doneFn) => `<ul class="plist bigplist">${ids.map(id => `<li class="${doneFn && doneFn(id) ? "done" : ""}">${esc(nameOf(id))}</li>`).join("")}</ul>`;
   const scoreTable = (deltas) => { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); return `<table><thead><tr><th>اللاعب</th>${deltas ? `<th class="n">هالجولة</th>` : ""}<th class="n">النقاط</th></tr></thead><tbody>${ids.map(id => `<tr><td>${esc(nameOf(id))}</td>${deltas ? `<td class="n ${deltas[id] ? "plus" : ""}">${deltas[id] ? "+" + deltas[id] : "0"}</td>` : ""}<td class="n">${S.scores[id] || 0}</td></tr>`).join("")}</tbody></table>`; };
-  const timer = sec => { clearInterval(tick); const upd = () => { const b = document.getElementById("tb"); if (!b) return; const left = Math.max(0, sec * 1000 - (Date.now() - stepStart)); b.style.width = (left / (sec * 1000) * 100) + "%"; }; upd(); tick = setInterval(upd, 300); return `<div class="tbar"><i id="tb" style="width:100%"></i></div>`; };
+  const timer = sec => { clearInterval(tick); const upd = () => { const b = document.getElementById("tb"); if (!b) return; const left = Math.max(0, sec * 1000 - (Date.now() - stepStart)); b.style.width = (left / (sec * 1000) * 100) + "%"; const n = document.getElementById("tvsecs"); if (n) n.textContent = Math.ceil(left / 1000); const h = document.getElementById("tvhint"); if (h && S && S.hint) { const x = hintHTML(S.hint); if (h.innerHTML !== x) h.innerHTML = x; } }; upd(); tick = setInterval(upd, 300); return `<div class="tbar"><i id="tb" style="width:100%"></i></div>`; };
   const lobbyIds = () => Object.keys(P).sort((a, b) => (P[a].at || 0) - (P[b].at || 0));
 
   /* ---------- صدق ولا كذب ---------- */
@@ -53,10 +53,11 @@
   // the canvas stays on screen during a turn; only the text around it is refreshed
   function drawSide() {
     const order = S.order || [], ok = S.correct || {};
-    const hint = S.hint ? `<div class="hint">${S.hint.map(c => c === " " ? `<i class="sp"></i>` : `<i>${esc(c)}</i>`).join("")}</div>` : "";
-    return `${hint}<ul class="chat">${(S.chat || []).slice().reverse().slice(0, 8).map(m => `<li><b>${esc(nameOf(m.p))}:</b> ${m.c ? "🔥 قريب!" : esc(m.t)}</li>`).join("")}</ul>
+    const left = Math.max(0, Math.ceil(80 - (Date.now() - stepStart) / 1000));
+    return `<div class="tvtop"><span class="tvsecs" id="tvsecs">${left}</span><div class="hint" id="tvhint">${hintHTML(S.hint)}</div></div><ul class="chat">${(S.chat || []).slice().reverse().slice(0, 8).map(m => `<li><b>${esc(nameOf(m.p))}:</b> ${m.c ? "🔥 قريب!" : esc(m.t)}</li>`).join("")}</ul>
       ${plist(order.filter(id => id !== S.drawer), id => ok[id])}`;
   }
+  const hintHTML = h => (h || []).map(c => c === " " ? `<i class="sp"></i>` : `<i>${esc(c)}</i>`).join("");
   function renderDraw() {
     const head = S.drawer ? `<p class="tvsub">الدور ${S.turn + 1} من ${S.total} · ✏️ الرسّام: <b>${esc(nameOf(S.drawer))}</b></p>` : "";
     if (S.phase === "lobby") return `<div class="card"><p class="tvtitle">🎨 ارسم وخمّن</p><p class="tvsub">اللاعبين (${lobbyIds().length}) · ننتظر صاحب الغرفة يبدأ</p>${plist(lobbyIds())}</div>`;
@@ -73,7 +74,7 @@
     const q = S.q ? `<p class="tvq">${esc(S.q.text)}</p>` : "";
     if (S.phase === "lobby") return `<div class="card"><p class="tvtitle">👀 مين فينا؟</p><p class="tvsub">اللاعبين (${lobbyIds().length}) · ننتظر صاحب الغرفة يبدأ</p>${plist(lobbyIds())}</div>`;
     if (S.phase === "vote") return `<div class="card">${head}${q}${timer(30)}<p class="tvsub">🗳️ صوّتوا من جوالاتكم… التصويت سري</p>${plist(order, id => P[id] && P[id].vote && S.q && P[id].vote.q === S.q.id)}</div>`;
-    if (S.phase === "reveal") { const r = S.reveal || { counts: {}, winners: [] }; return `<div class="card">${head}${q}<p class="tvtitle">${r.winners.length ? "👑 " + esc(r.winners.map(nameOf).join(" و")) : "ما أحد صوّت"}</p>${bars(order, r.counts, r.winners, "win")}</div><div class="card"><h2>الترتيب</h2>${scoreTable(r.deltas)}</div>`; }
+    if (S.phase === "reveal") { const r = S.reveal || { counts: {}, winners: [] }; return `<div class="card">${head}${q}<p class="tvtitle">${r.winners.length ? "👑 " + esc(r.winners.map(nameOf).join(" و")) : r.tie ? "تعادل كامل 🤝 ما أحد ياخذ اللقب" : "ما أحد صوّت"}</p>${bars(order, r.counts, r.winners, "win")}</div><div class="card"><h2>الترتيب</h2>${scoreTable(r.deltas)}</div>`; }
     if (S.phase === "end") { const ids = Object.keys(S.scores || {}).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0)); const m = ["🥇", "🥈", "🥉"]; return `<div class="card"><p class="tvtitle">الألقاب 👑</p><ul class="pairs tvpairs">${(S.titles || []).map(t => `<li>${esc(t.w.map(nameOf).join(" و"))} <i>${esc(String(t.q).replace(/^مين فينا\s*/, "").replace(/؟$/, ""))}</i></li>`).join("")}</ul></div><div class="card"><h2>النتيجة النهائية 🏆</h2><div class="podium">${ids.map((id, i) => `<div><span>${m[i] || i + 1 + "."} ${esc(nameOf(id))}</span><span>${S.scores[id] || 0}</span></div>`).join("")}</div></div>`; }
     return "";
   }
@@ -95,7 +96,13 @@
   function render() {
     if (!game) return;
     if (!S) { app.innerHTML = `<div class="card center"><p class="big-msg">الغرفة انقفلت أو ما بدأت.</p></div>`; return; }
-    const key = S.phase + ":" + (S.q ? S.q.id : S.tid || S.round || ""); if (key !== lastStep) { lastStep = key; stepStart = Date.now(); }
+    const key = S.phase + ":" + (S.q ? S.q.id : S.tid || S.round || "");
+    if (key !== lastStep) {
+      lastStep = key;
+      // ارسم وخمّن: follow the host's clock (t0) so a TV opened mid-turn shows the real time left
+      const ago = S.t0 ? Date.now() - S.t0 : NaN;
+      stepStart = game === "draw" && ago > -15000 && ago < 120000 ? Math.min(Date.now(), S.t0) : Date.now();
+    }
     if (game === "draw" && S.phase === "draw" && frame === key && document.getElementById("tvcv")) { document.getElementById("tvside").innerHTML = drawSide(); return; }
     const bg = game === "bs" && S.catInfo && S.catInfo.image && S.phase !== "lobby" ? "../outside/" + S.catInfo.image : null;
     document.body.classList.toggle("catbg", !!bg); document.body.style.setProperty("--catbg", bg ? `url("${bg}")` : "none");

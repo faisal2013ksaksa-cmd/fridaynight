@@ -424,6 +424,16 @@
       if (view === "room") leaveRoom(); else { history.replaceState(null, "", location.pathname); goHome(); }
     };
   }
+  // the host's phone drives the timers: keep its screen awake, catch up when it comes back,
+  // and tell everyone else when the host is late to move on
+  const LATE = { choose: CHOOSE_S, draw: DRAW_S, reveal: REVEAL_S };
+  setInterval(() => {
+    if (!self.FNW) return;
+    FNW.hold(view === "room" && isHost());
+    const lim = view === "room" && S && !isHost() && LATE[S.phase];
+    FNW.late(lim && (Date.now() - stepStart) / 1000 > lim + 6 ? nameOf(S.host) : null);
+  }, 1000);
+  if (self.FNW) FNW.onVisible(() => hostTick());
   fetch("words.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
     WORDS = d.categories;
     const h = (location.hash || "").replace("#", "").toUpperCase();

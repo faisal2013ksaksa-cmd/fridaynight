@@ -28,15 +28,17 @@
     if (pool.length < n) pool = pool.concat(shuffle(catIds.flatMap(all).filter(q => !pool.includes(q))));
     return pool.slice(0, n);
   }
-  // votes: {voter: target}. winners = most votes; right = voters who picked a winner
+  // votes: {voter: target}. winners = most votes; right = voters who picked a winner.
+  // A vote for yourself never earns a point, and when everyone ties nobody takes the title.
   function scoreRound(order, votes) {
     const counts = {}; order.forEach(id => counts[id] = 0);
     Object.values(votes).forEach(t => { if (t in counts) counts[t]++; });
     const max = Math.max(0, ...Object.values(counts));
-    const winners = max ? order.filter(id => counts[id] === max) : [];
-    const right = Object.keys(votes).filter(v => winners.includes(votes[v]));
+    const tie = max > 0 && order.length > 1 && order.every(id => counts[id] === max);
+    const winners = max && !tie ? order.filter(id => counts[id] === max) : [];
+    const right = Object.keys(votes).filter(v => winners.includes(votes[v]) && votes[v] !== v);
     const deltas = {}; order.forEach(id => deltas[id] = right.includes(id) ? 1 : 0);
-    return { counts, winners, right, deltas };
+    return { counts, winners, right, deltas, tie };
   }
 
   /* ---------------- firebase ---------------- */
@@ -133,7 +135,7 @@
     const r = scoreRound(S.order, votesNow());
     const scores = Object.assign({}, S.scores); Object.entries(r.deltas).forEach(([id, d]) => scores[id] = (scores[id] || 0) + d);
     const titles = (S.titles || []).concat(r.winners.length ? [{ q: S.q.text, w: r.winners, n: r.counts[r.winners[0]] }] : []);
-    await writeState({ phase: "reveal", scores, titles, reveal: { counts: r.counts, winners: r.winners, right: r.right, deltas: r.deltas, n: Object.keys(votesNow()).length } });
+    await writeState({ phase: "reveal", scores, titles, reveal: { counts: r.counts, winners: r.winners, right: r.right, deltas: r.deltas, tie: r.tie, n: Object.keys(votesNow()).length } });
   }
   async function hostNext() {
     const i = S.idx + 1;
@@ -208,7 +210,7 @@
       const r = S.reveal || { counts: {}, winners: [], right: [], deltas: {} };
       const amWin = r.winners.includes(ME.pid), amRight = r.right.includes(ME.pid);
       app.innerHTML = `<div class="card">${head}${qtext}
-        ${r.winners.length ? `<p class="big-msg">👑 ${esc(r.winners.map(nameOf).join(" و"))}</p><p class="note center">${amWin ? "هذا أنت 😂" : ""}${amRight ? " توقعت مع الأغلبية <b class=\"word\">+1</b>" : ""}</p>` : `<p class="big-msg">ما أحد صوّت ⏱️</p>`}
+        ${r.winners.length ? `<p class="big-msg">👑 ${esc(r.winners.map(nameOf).join(" و"))}</p><p class="note center">${amWin ? "هذا أنت 😂" : ""}${amRight ? " توقعت مع الأغلبية <b class=\"word\">+1</b>" : ""}</p>` : r.tie ? `<p class="big-msg">تعادل كامل 🤝</p><p class="note center">ما أحد ياخذ اللقب ولا نقاط هالمرة</p>` : `<p class="big-msg">ما أحد صوّت ⏱️</p>`}
         ${bars(order, r.counts, r.winners)}</div>
         <div class="card"><h2>الترتيب</h2>${standings(r.deltas)}${isHost() ? `<button type="button" class="btn mt" data-act="hnext">${S.idx + 1 >= S.total ? "النتيجة النهائية 🏆" : "السؤال اللي بعده"}</button>` : `<p class="note center mt">ننتظر 👑 ${esc(nameOf(S.host))}…</p>`}</div>`;
       return;
@@ -247,7 +249,7 @@
         <button type="button" class="mode" data-act="ocreate"><span class="ic">📡</span><span><b>افتح غرفة</b><span>كل واحد يلعب من جواله (3 لاعبين وأكثر)</span></span></button>
         <button type="button" class="mode" data-act="ojoin"><span class="ic">🔑</span><span><b>ادخل غرفة</b><span>عندك رمز من صاحبك</span></span></button>
       </div>
-      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>يطلع سؤال مثل «مين فينا أكثر واحد يتأخر؟».</li><li>كل واحد يصوّت من جواله لواحد من الموجودين، حتى نفسه.</li><li>التصويت سري: محد يعرف مين صوّت لمين، بس نشوف كم صوت أخذ كل واحد.</li><li>اللي ياخذ أكثر أصوات ياخذ اللقب 👑، وكل واحد صوّت له ياخذ <b>+1</b>.</li></ul>
+      <div class="card mt"><h3>طريقة اللعب</h3><ul class="note"><li>يطلع سؤال مثل «مين فينا أكثر واحد يتأخر؟».</li><li>كل واحد يصوّت من جواله لواحد من الموجودين، حتى نفسه.</li><li>التصويت سري: محد يعرف مين صوّت لمين، بس نشوف كم صوت أخذ كل واحد.</li><li>اللي ياخذ أكثر أصوات ياخذ اللقب 👑، وكل واحد صوّت له ياخذ <b>+1</b> (إلا إذا صوّت لنفسه).</li><li>إذا تعادل الكل، ما أحد ياخذ اللقب ولا نقاط.</li></ul>
       <p class="note">نوع الأسئلة: ${CATS.map(c => esc(c.emoji + " " + c.name)).join(" · ")}</p><p class="note">📺 تقدرون تعرضونها على التلفزيون من صفحة «شاشة العرض».</p></div>`;
   }
   function renderForm(kind, code, msg) {
@@ -293,6 +295,16 @@
       if (view === "room") leaveRoom(); else { history.replaceState(null, "", location.pathname); goHome(); }
     };
   }
+  // the host's phone drives the timers: keep its screen awake, catch up when it comes back,
+  // and tell everyone else when the host is late to move on
+  const LATE = { vote: VOTE_S };
+  setInterval(() => {
+    if (!self.FNW) return;
+    FNW.hold(view === "room" && isHost());
+    const lim = view === "room" && S && !isHost() && LATE[S.phase];
+    FNW.late(lim && (Date.now() - stepStart) / 1000 > lim + 6 ? nameOf(S.host) : null);
+  }, 1000);
+  if (self.FNW) FNW.onVisible(() => hostTick());
   fetch("questions.json", { cache: "no-cache" }).then(r => r.json()).then(d => {
     CATS = d.categories;
     const h = (location.hash || "").replace("#", "").toUpperCase();
