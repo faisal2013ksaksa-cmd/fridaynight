@@ -43,8 +43,19 @@ def main():
     series = json.loads(m.group(1))
     byCode = {q["c"]: (c, q) for c in series for q in c["qs"]}
     added, done, missing = [], {"image": 0, "noimage": 0, "delete": 0}, []
+    test = False
     for f in files:
-        picks = json.loads(f.read_text(encoding="utf-8")).get("picks", {})
+        doc = json.loads(f.read_text(encoding="utf-8"))
+        picks = doc.get("picks", {})
+        if doc.get("test"):   # dry run: download + shrink, change nothing
+            test = True
+            for code, p in picks.items():
+                if p.get("do") == "tmdb": raw = fetch("https://image.tmdb.org/t/p/original" + p["path"])
+                elif p.get("do") == "upload": raw = base64.b64decode(p["data"].split(",", 1)[1])
+                else: print("test", code, p.get("do"), "known" if code in byCode else "unknown"); continue
+                jpg = shrink(raw); im = Image.open(io.BytesIO(jpg))
+                print("test", code, p["do"], "ok:", len(raw), "bytes ->", im.size, len(jpg), "bytes")
+            continue
         for code, p in picks.items():
             if code not in byCode: missing.append(code); continue
             cat, q = byCode[code]
@@ -68,6 +79,9 @@ def main():
                 q.pop("r", None); q["ni"] = 1; done["noimage"] += 1
             elif do == "delete":
                 cat["qs"] = [x for x in cat["qs"] if x["c"] != code]; done["delete"] += 1
+    if test and not added and not any(done.values()):
+        for f in files: f.unlink()
+        print("test run only, nothing changed"); return
     html = html[:m.start(1)] + json.dumps(series, ensure_ascii=False) + html[m.end(1):]
     b = re.search(r"const BUNDLED=new Set\(\[", html)
     have = set(re.findall(r'"([^"]+)"', html[b.end():html.index("])", b.end())]))
