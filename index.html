@@ -7,140 +7,149 @@
 /* old سين جيم links (site/#AB123) now live under seenjeem/ */
 (function () { function go() { var h = (location.hash || "").replace("#", ""); if (/^[A-Za-z]{2}[0-9]{3}$/.test(h)) location.replace("seenjeem/#" + h.toUpperCase()); } go(); addEventListener("hashchange", go); })();
 </script>
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png"><link rel="shortcut icon" href="favicon.ico"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="site.webmanifest"><meta name="theme-color" content="#7c3aed">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png"><link rel="shortcut icon" href="favicon.ico"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="site.webmanifest"><meta name="theme-color" content="#fff6e9">
 <title>Friday Night · ألعاب الشلة</title>
 <meta name="description" content="ألعاب جماعية للجمعة: سين جيم، برا السالفة، صدق ولا كذب، مين فينا، ارسم وخمّن. كل واحد يلعب من جواله.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Tajawal:wght@400;500;700;800&display=swap">
 <style>
+/* «ملوّن ومرح»: cream ground, bold ink outlines, hard coloured shadows, playful motion */
 :root{
-  --bg:#fdf3ff; --surface:#ffffff; --soft:#f6eafd; --line:#ecdcf6;
-  --ink:#2b1745; --muted:#7b6890; --accent:#7c3aed; --pink:#f03e7a; --gold:#ffb21e; --good:#12a874; --orange:#ff7a1a;
-  --shadow:0 6px 22px rgba(92,40,140,.10); --shadow-lg:0 14px 40px rgba(92,40,140,.18);
-  --f-display:"Almarai","Tajawal",system-ui,sans-serif;
-  --f-body:"Tajawal","Segoe UI",Tahoma,system-ui,sans-serif;
+  --bg:#fff6e9; --ink:#2b1745; --muted:#6b5a80; --card:#fff;
+  --purple:#7c3aed; --pink:#f03e7a; --green:#12a874; --gold:#ffb21e; --orange:#ff7a1a; --blue:#1c7ed6;
+  --f-display:"Almarai","Tajawal",system-ui,sans-serif; --f-body:"Tajawal","Segoe UI",Tahoma,system-ui,sans-serif;
   color-scheme:light;
 }
-*{box-sizing:border-box}
-[hidden]{display:none!important}
+*{box-sizing:border-box}[hidden]{display:none!important}
 html,body{min-height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;padding:env(safe-area-inset-top,0) 16px calc(32px + env(safe-area-inset-bottom,0));overflow-x:hidden}
-body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(60px);opacity:.55;pointer-events:none}
-body::before{width:420px;height:420px;background:#e9d5ff;top:-140px;right:-120px}
-body::after{width:360px;height:360px;background:#ffd6e7;bottom:-120px;left:-120px}
-a{color:inherit}
-button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none}
-:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px}
-.wrap{max-width:980px;margin-inline:auto}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;padding:env(safe-area-inset-top,0) 16px calc(80px + env(safe-area-inset-bottom,0));overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit;color:inherit;border:0}
+:focus-visible{outline:3px solid var(--purple);outline-offset:3px;border-radius:10px}
+.wrap{max-width:980px;margin:0 auto;position:relative;z-index:2}
+
+/* background: soft colour washes + floating toys */
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 15% 10%,#ffe1f0 0,transparent 35%),radial-gradient(circle at 90% 30%,#e3dcff 0,transparent 35%),radial-gradient(circle at 30% 90%,#d8f7ea 0,transparent 35%)}
+.bg span{position:absolute;font-size:34px;opacity:.8;animation:bob 6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-22px) rotate(12deg)}}
 
 /* hero */
-.hero{text-align:center;padding:34px 0 10px}
-.logo{width:96px;height:96px;border-radius:28px;box-shadow:var(--shadow-lg);display:block;margin:0 auto 14px;animation:pop .6s cubic-bezier(.2,1.4,.4,1) both}
-.hero h1{font-family:var(--f-display);font-weight:800;font-size:clamp(34px,9vw,54px);line-height:1.1;margin:0;direction:ltr;letter-spacing:-.5px}
-.hero h1 span{background:linear-gradient(90deg,var(--accent),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p{margin:10px auto 0;max-width:30em;color:var(--muted);font-weight:700;font-size:clamp(16px,4.2vw,19px)}
+.hero{text-align:center;padding:36px 0 6px}
+.logo{width:104px;height:104px;margin:0 auto;border-radius:30px;overflow:hidden;background:var(--gold);box-shadow:0 8px 0 #d98f00;animation:wiggle 2.6s ease-in-out infinite}
+.logo img{width:100%;height:100%;object-fit:cover;display:block}
+@keyframes wiggle{0%,100%{transform:rotate(0)}10%{transform:rotate(-10deg) scale(1.05)}20%{transform:rotate(8deg)}30%{transform:rotate(0)}}
+.hero h1{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,11vw,66px);line-height:1.05;margin:14px 0 0;direction:ltr}
+.hero h1 span{color:var(--pink);display:inline-block;animation:hop 1.8s ease-in-out infinite}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px) rotate(-3deg)}}
+.hero p{max-width:30em;margin:12px auto 0;color:var(--muted);font-weight:700;font-size:clamp(15px,4.2vw,18px)}
 
 /* quick join */
-.join{margin:22px auto 6px;max-width:520px;background:var(--surface);border-radius:22px;box-shadow:var(--shadow);padding:14px}
-.join label{display:block;font-weight:800;font-size:14px;color:var(--muted);margin:0 4px 8px}
+.join{max-width:520px;margin:22px auto 0;padding:14px;border-radius:22px;background:var(--card);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink)}
+.join label{display:block;font-weight:800;font-size:14px;margin:0 4px 8px}
 .join .row{display:flex;gap:8px}
-.join input{flex:1;min-width:0;background:var(--soft);border:1.5px solid transparent;border-radius:14px;padding:12px 14px;font:800 20px var(--f-display);letter-spacing:4px;text-align:center;color:var(--ink);text-transform:uppercase;direction:ltr}
-.join input:focus{border-color:var(--accent);outline:none;background:#fff}
-.join button{background:var(--accent);color:#fff;font-weight:800;font-size:17px;border-radius:14px;padding:0 22px}
+.join input{flex:1;min-width:0;background:var(--bg);border:2px solid var(--ink);border-radius:14px;padding:12px;text-align:center;font:800 20px var(--f-display);letter-spacing:4px;text-transform:uppercase;direction:ltr}
+.join input:focus{outline:none;background:#fff;border-color:var(--purple)}
+.join button{background:var(--purple);color:#fff;border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:14px;padding:0 22px;font-weight:800;font-size:17px;cursor:pointer}
+.join button:active{transform:translate(3px,3px);box-shadow:none}
 .join button:disabled{opacity:.6}
 .join .msg{min-height:1.4em;margin:8px 4px 0;font-size:14px;font-weight:700;color:var(--muted);text-align:center}
 .join .msg.err{color:#e03131}
 
 /* games */
-h2.sec{font-family:var(--f-display);font-weight:800;font-size:22px;margin:30px 4px 12px}
-.games{display:grid;gap:14px;grid-template-columns:1fr}
+h2.sec{font-family:var(--f-display);font-weight:800;font-size:22px;margin:32px 4px 12px}
+.games{display:grid;gap:16px;grid-template-columns:1fr}
 @media (min-width:640px){.games{grid-template-columns:1fr 1fr}}
 @media (min-width:920px){.games{grid-template-columns:repeat(3,1fr)}}
-.game{--c:var(--accent);position:relative;display:flex;flex-direction:column;gap:10px;text-decoration:none;background:var(--surface);border-radius:24px;padding:18px;box-shadow:var(--shadow);overflow:hidden;transition:transform .18s ease,box-shadow .18s ease;animation:rise .5s ease both}
-.game::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--c)}
-.game:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
-.game:active{transform:scale(.985)}
-.game .top{display:flex;align-items:center;gap:12px}
-.game .ic{flex:none;width:58px;height:58px;border-radius:18px;display:grid;place-items:center;font-size:32px;background:color-mix(in srgb,var(--c) 14%,#fff)}
+.game{--c:var(--purple);position:relative;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:24px;background:var(--card);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--c);transition:transform .2s ease-out,box-shadow .2s;animation:rise .6s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:calc(var(--i)*.07s)}
+@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.96)}}
+.game::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at var(--gx,50%) var(--gy,0%),rgba(255,255,255,.75),transparent 45%);opacity:0;transition:opacity .2s}
+.game:hover::before{opacity:1}
+.game:hover{box-shadow:10px 10px 0 var(--c)}
+.game:active{transform:scale(.97)!important;box-shadow:2px 2px 0 var(--c)}
+.top{display:flex;align-items:center;gap:12px}
+.ic{flex:none;width:70px;height:70px;display:grid;place-items:center;transition:transform .3s}
+.ic img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 3px rgba(43,23,69,.25))}
+.game:hover .ic{transform:rotate(-8deg) scale(1.12)}
 .game h3{margin:0;font-family:var(--f-display);font-weight:800;font-size:21px;line-height:1.2}
-.game .sub{margin:2px 0 0;color:var(--muted);font-weight:700;font-size:14px}
-.game p{margin:0;color:#4a3763;font-weight:500}
+.sub{margin:2px 0 0;font-weight:800;font-size:14px;color:var(--c)}
+.desc{margin:0;color:#4a3763}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
-.tags span{background:var(--soft);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:800;color:var(--muted)}
-.new{position:absolute;top:16px;left:16px;background:var(--pink);color:#fff;font-weight:800;font-size:12px;border-radius:999px;padding:3px 10px;box-shadow:0 4px 12px rgba(240,62,122,.35)}
-.go{display:flex;align-items:center;justify-content:space-between;font-weight:800;color:var(--c);margin-top:2px}
-.go b{font-size:20px;transition:transform .18s ease}
-.game:hover .go b{transform:translateX(-4px)}
-.games .game:nth-child(2){animation-delay:.05s}.games .game:nth-child(3){animation-delay:.1s}.games .game:nth-child(4){animation-delay:.15s}.games .game:nth-child(5){animation-delay:.2s}
+.tags span{background:var(--bg);border:2px solid var(--ink);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:800}
+.go{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--c)}
+.go b{font-size:20px;transition:transform .2s}.game:hover .go b{transform:translateX(-5px)}
+.new{position:absolute;top:14px;left:14px;background:var(--pink);color:#fff;border:2px solid var(--ink);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:800;animation:wiggle 2s infinite}
 
-/* tv banner */
-.tv{display:flex;align-items:center;gap:16px;margin-top:14px;text-decoration:none;background:linear-gradient(120deg,#2b1745,#4c1d95);color:#fff;border-radius:24px;padding:20px;box-shadow:var(--shadow-lg);transition:transform .18s ease}
+/* tv */
+.tv{display:flex;align-items:center;gap:14px;margin-top:18px;padding:18px 20px;border-radius:24px;background:var(--ink);color:#fff;border:3px solid var(--ink);box-shadow:6px 6px 0 var(--gold);transition:transform .2s}
 .tv:hover{transform:translateY(-3px)}
-.tv .ic{flex:none;width:58px;height:58px;border-radius:18px;display:grid;place-items:center;font-size:32px;background:rgba(255,255,255,.12)}
-.tv h3{margin:0;font-family:var(--f-display);font-size:20px}
-.tv p{margin:2px 0 0;opacity:.85;font-weight:500}
-.tv .arrow{margin-inline-start:auto;font-size:22px;font-weight:800}
+.tv .ic{width:56px;height:56px;border-radius:16px;background:var(--gold);font-size:30px;border:2px solid #fff}
+.tv h3{margin:0;font-family:var(--f-display);font-size:20px}.tv p{margin:2px 0 0;opacity:.85}.tv .arrow{margin-inline-start:auto;font-size:22px;font-weight:800}
 
 /* steps */
-.steps{display:grid;gap:12px;grid-template-columns:1fr;counter-reset:s}
+.steps{display:grid;gap:12px;grid-template-columns:1fr;counter-reset:s;padding:0;margin:0}
 @media (min-width:640px){.steps{grid-template-columns:repeat(3,1fr)}}
-.steps li{list-style:none;background:var(--surface);border-radius:20px;padding:16px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start;font-weight:700}
-.steps li::before{counter-increment:s;content:counter(s);flex:none;width:34px;height:34px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-weight:800}
-.steps{padding:0;margin:0}
-.steps small{display:block;color:var(--muted);font-weight:500}
+.steps li{list-style:none;background:var(--card);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);border-radius:20px;padding:14px;display:flex;gap:12px;align-items:flex-start;font-weight:800}
+.steps li::before{counter-increment:s;content:counter(s);flex:none;width:34px;height:34px;border-radius:12px;background:var(--purple);color:#fff;border:2px solid var(--ink);display:grid;place-items:center;font-family:var(--f-display)}
+.steps small{display:block;color:var(--muted);font-weight:600}
 footer{text-align:center;color:var(--muted);font-size:14px;font-weight:700;margin-top:34px}
 
-@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
-@keyframes rise{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* opening a game: its colour fills the screen with its icon */
+.wipe{position:fixed;inset:0;z-index:80;background:var(--c);display:grid;place-items:center;clip-path:circle(0 at var(--x,50%) var(--y,50%));animation:wipe .5s cubic-bezier(.7,0,.3,1) forwards}
+@keyframes wipe{to{clip-path:circle(150% at var(--x,50%) var(--y,50%))}}
+.wipein{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;animation:pop .5s .2s both cubic-bezier(.2,1.6,.4,1)}
+.wipein img{width:140px;height:140px;object-fit:contain;filter:drop-shadow(0 8px 0 rgba(43,23,69,.35));animation:wiggle 1s .5s infinite}
+.wipein b{font-family:var(--f-display);font-size:32px;text-shadow:3px 3px 0 var(--ink)}
+@keyframes pop{from{transform:scale(.3);opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.wipe{clip-path:none}}
 </style>
 </head>
 <body>
+<div class="bg" aria-hidden="true"><span style="top:8%;left:8%">⭐</span><span style="top:22%;left:88%;animation-delay:-1s">🎲</span><span style="top:60%;left:4%;animation-delay:-2s">🎈</span><span style="top:78%;left:85%;animation-delay:-3s">🍿</span><span style="top:44%;left:92%;animation-delay:-4s">🎯</span><span style="top:90%;left:30%;animation-delay:-1.5s">✨</span><span style="top:35%;left:15%;animation-delay:-2.5s">🃏</span><span style="top:70%;left:60%;animation-delay:-3.5s">🎤</span></div>
 <div class="wrap">
   <header class="hero">
-    <img class="logo" src="icon-512.png" alt="" width="96" height="96">
+    <div class="logo"><img src="icon-512.png" alt="" width="104" height="104"></div>
     <h1>Friday <span>Night</span></h1>
     <p>ألعاب جماعية للجمعة مع الشلة والأهل. كل واحد يلعب من جواله، والتلفزيون يعرض للكل 🎉</p>
   </header>
 
   <form class="join" id="join" autocomplete="off">
     <label for="code">عندك رمز غرفة من صاحبك؟</label>
-    <div class="row"><input id="code" maxlength="5" placeholder="ABCD" inputmode="latin" aria-describedby="jmsg"><button type="submit" id="jgo">ادخل</button></div>
+    <div class="row"><input id="code" maxlength="5" placeholder="ABCD" aria-describedby="jmsg"><button type="submit" id="jgo">ادخل</button></div>
     <p class="msg" id="jmsg" role="status"></p>
   </form>
 
   <h2 class="sec">اختاروا لعبة</h2>
   <div class="games">
-    <a class="game" href="seenjeem/" style="--c:var(--accent)">
-      <div class="top"><span class="ic">🎬</span><div><h3>سين جيم</h3><p class="sub">مسلسلات وأفلام</p></div></div>
-      <p>فرق تتنافس على أسئلة من 58 مسلسل وفيلم، مع صور ومقاطع وجرس للأسرع.</p>
+    <a class="game" href="seenjeem/" style="--c:var(--purple);--i:0">
+      <div class="top"><span class="ic"><img src="icons/seenjeem.png" alt=""></span><div><h3>سين جيم</h3><p class="sub">مسلسلات وأفلام</p></div></div>
+      <p class="desc">فرق تتنافس على أسئلة من 58 مسلسل وفيلم، مع صور ومقاطع، وكل فريق يتحكم بسؤاله.</p>
       <div class="tags"><span>2–4 فرق</span><span>جهاز واحد أو أونلاين</span></div>
       <span class="go">العب <b>←</b></span>
     </a>
-    <a class="game" href="outside/" style="--c:var(--pink)">
-      <div class="top"><span class="ic">🤫</span><div><h3>برا السالفة</h3><p class="sub">مين ما يعرف الكلمة؟</p></div></div>
-      <p>الكل يعرف الكلمة إلا واحد. اسألوا بعض واكشفوه قبل ما يعرفها، أو العبوا قسم الجاسوس.</p>
+    <a class="game" href="outside/" style="--c:var(--pink);--i:1">
+      <div class="top"><span class="ic"><img src="icons/outside.png" alt=""></span><div><h3>برا السالفة</h3><p class="sub">مين ما يعرف الكلمة؟</p></div></div>
+      <p class="desc">الكل يعرف الكلمة إلا واحد. اسألوا بعض واكشفوه قبل ما يعرفها، أو العبوا قسم الجاسوس.</p>
       <div class="tags"><span>3 لاعبين وأكثر</span><span>جوال واحد أو أونلاين</span></div>
       <span class="go">العب <b>←</b></span>
     </a>
-    <a class="game" href="sedq/" style="--c:var(--good)">
-      <div class="top"><span class="ic">🤥</span><div><h3>صدق ولا كذب</h3><p class="sub">اخدع أصحابك</p></div></div>
-      <p>اكتب جواب غلط يبان صحيح، وحاول تعرف الجواب الحقيقي من بين كذبات الباقين.</p>
+    <a class="game" href="sedq/" style="--c:var(--green);--i:2">
+      <div class="top"><span class="ic"><img src="icons/sedq.png" alt=""></span><div><h3>صدق ولا كذب</h3><p class="sub">اخدع أصحابك</p></div></div>
+      <p class="desc">اكتب جواب غلط يبان صحيح، وحاول تعرف الجواب الحقيقي من بين كذبات الباقين.</p>
       <div class="tags"><span>2–8 لاعبين</span><span>أونلاين</span></div>
       <span class="go">العب <b>←</b></span>
     </a>
-    <a class="game" href="mf/" style="--c:var(--gold)">
+    <a class="game" href="mf/" style="--c:var(--gold);--i:3">
       <span class="new">جديدة</span>
-      <div class="top"><span class="ic">👀</span><div><h3>مين فينا؟</h3><p class="sub">تصويت سري</p></div></div>
-      <p>«مين فينا أكثر واحد يتأخر؟» كل واحد يصوّت سري، واللي ياخذ أكثر أصوات ياخذ اللقب.</p>
+      <div class="top"><span class="ic"><img src="icons/mf.png" alt=""></span><div><h3>مين فينا؟</h3><p class="sub">تصويت سري</p></div></div>
+      <p class="desc">«مين فينا أكثر واحد يتأخر؟» كل واحد يصوّت سري، واللي ياخذ أكثر أصوات ياخذ اللقب.</p>
       <div class="tags"><span>3 لاعبين وأكثر</span><span>أونلاين</span></div>
       <span class="go">العب <b>←</b></span>
     </a>
-    <a class="game" href="draw/" style="--c:var(--orange)">
+    <a class="game" href="draw/" style="--c:var(--orange);--i:4">
       <span class="new">جديدة</span>
-      <div class="top"><span class="ic">🎨</span><div><h3>ارسم وخمّن</h3><p class="sub">ارسم بإصبعك</p></div></div>
-      <p>واحد يرسم من جواله والباقين يتسابقون مين يعرف أول. كل ما عرفت أسرع، أخذت نقاط أكثر.</p>
+      <div class="top"><span class="ic"><img src="icons/draw.png" alt=""></span><div><h3>ارسم وخمّن</h3><p class="sub">ارسم بإصبعك</p></div></div>
+      <p class="desc">واحد يرسم من جواله والباقين يتسابقون مين يعرف أول. كل ما عرفت أسرع، أخذت نقاط أكثر.</p>
       <div class="tags"><span>2 لاعبين وأكثر</span><span>أونلاين</span></div>
       <span class="go">العب <b>←</b></span>
     </a>
@@ -161,6 +170,7 @@ footer{text-align:center;color:var(--muted);font-size:14px;font-weight:700;margi
 
   <footer>Friday Night 🎉 ليالي الجمعة أحلى مع الشلة</footer>
 </div>
+<script src="fnfx.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
@@ -171,7 +181,7 @@ footer{text-align:center;color:var(--muted);font-size:14px;font-weight:700;margi
   "use strict";
   const GAMES = { bs: "outside/", sq: "sedq/", mf: "mf/", draw: "draw/" };
   const form = document.getElementById("join"), inp = document.getElementById("code"), msg = document.getElementById("jmsg"), go = document.getElementById("jgo");
-  const say = (t, err) => { msg.textContent = t; msg.classList.toggle("err", !!err); };
+  const say = (t, err) => { msg.textContent = t; msg.classList.toggle("err", !!err); if (err && self.FX) FX.play("wrong", 60); };
   let db = null;
   try { const C = self.FIREBASE_CONFIG; if (C && C.databaseURL && self.firebase) { firebase.initializeApp(C); db = firebase.database(); } } catch (e) {}
   const dec = v => { try { return v && typeof v.j === "string" ? JSON.parse(v.j) : null; } catch (e) { return null; } };
@@ -192,6 +202,36 @@ footer{text-align:center;color:var(--muted);font-size:14px;font-weight:700;margi
       location.href = GAMES[best] + "#" + c;
     } catch (err) { say("ما قدرت أتصل. تأكد من النت.", true); go.disabled = false; }
   });
+})();
+/* motion: sounds, card tilt, and the colour wipe when a game opens */
+(function () {
+  "use strict";
+  if (self.FX) FX.muteButton();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.addEventListener("pointerdown", e => { if (e.target.closest("button:not(.fx-mute),.game,.tv") && self.FX) FX.play("tap", 8); }, { passive: true });
+  if (!reduce) document.querySelectorAll(".game").forEach(el => {
+    el.addEventListener("pointermove", e => {
+      if (e.pointerType === "touch") return;
+      const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      el.style.transform = `perspective(700px) rotateY(${x * 12}deg) rotateX(${-y * 12}deg) translateY(-4px)`;
+      el.style.setProperty("--gx", (x + .5) * 100 + "%"); el.style.setProperty("--gy", (y + .5) * 100 + "%");
+    });
+    el.addEventListener("pointerleave", () => { el.style.transform = ""; });
+  });
+  document.querySelectorAll(".game,.tv").forEach(el => el.addEventListener("click", e => {
+    if (reduce || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    const href = el.getAttribute("href"), img = el.querySelector(".ic img"), name = el.querySelector("h3").textContent;
+    if (self.FX) FX.play("whoosh");
+    const w = document.createElement("div"); w.className = "wipe";
+    w.style.setProperty("--c", getComputedStyle(el).getPropertyValue("--c") || "#2b1745");
+    w.style.setProperty("--x", e.clientX + "px"); w.style.setProperty("--y", e.clientY + "px");
+    w.innerHTML = `<div class="wipein">${img ? `<img src="${img.getAttribute("src")}" alt="">` : `<span style="font-size:90px">📺</span>`}<b>${name}</b></div>`;
+    document.body.appendChild(w);
+    setTimeout(() => { location.href = href; }, 650);
+  }));
+  // coming back with the browser's back button: drop the wipe
+  addEventListener("pageshow", e => { if (e.persisted) document.querySelectorAll(".wipe").forEach(x => x.remove()); });
 })();
 </script>
 </body>
