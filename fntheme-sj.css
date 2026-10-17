@@ -77,3 +77,6 @@ body.tv .fn-bg,body.hosttv .fn-bg{opacity:.6}
 /* the mute button sits above سين جيم's bottom start bar */
 .fx-mute{bottom:calc(86px + env(safe-area-inset-bottom,0px))!important}
 .fx-mute{width:40px!important;height:40px!important;font-size:17px!important;opacity:.9}
+.tmdb-credit{text-align:center;color:var(--muted);font-size:12px;font-weight:700;margin:28px 16px 90px}
+.tmdb-credit a{color:inherit}
+body.tv .tmdb-credit,body.hosttv .tmdb-credit{display:none}
